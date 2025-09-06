@@ -155,5 +155,11 @@ void usb_init(void)
 	irq_set_enabled(USB_LOW_PRIORITY_IRQ, true);
 
 	mutex_init(&self.mutex);
+    usb_reinit();
+}
+
+
+void usb_reinit(void)
+{
 	add_alarm_in_us(USB_TASK_INTERVAL_US, timer_task, NULL, true);
 }

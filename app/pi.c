@@ -1,5 +1,6 @@
 #include "pi.h"
 #include "gpio.h"
+#include "usb.h"
 #include "reg.h"
 #include "keyboard.h"
 #include "backlight.h"
@@ -464,6 +465,9 @@ static void sleep_resume(struct sleep_state const* ss)
 	// Restore LED and keyboard states
 	led_set(&ss->led_state);
 	reg_set_value(REG_ID_BKL, ss->keyboard_backlight);
+
+    // Restart USB callback - experimental
+    //reinit_usb();
 }
 
 void dormant_until_power_key_down(void)
