@@ -3,6 +3,7 @@
 #include "keyboard.h"
 #include "reg.h"
 #include "pi.h"
+#include "gpio.h"
 
 #include <pico/stdlib.h>
 
@@ -136,6 +137,12 @@ static bool transition_hold_key_state(struct hold_key* hold_key, bool const pres
 	return false;
 }
 
+
+static void handle_button_key_event(uint8_t i, bool pressed)
+{
+
+}
+
 static void handle_power_key_event(bool pressed)
 {
 	// Transition state
@@ -264,8 +271,13 @@ static int64_t timer_task(alarm_id_t id, void *user_data)
 
 #if NUM_OF_BTNS > 0
 	for (i = 0; i < NUM_OF_BTNS; i++) {
-		pressed = (gpio_get(btn_pins[i]) == 0);
-		handle_power_key_event(pressed);
+		pressed = (uni_gpio_get(btn_pins[i]) == 0);
+        if (i == 0)
+           handle_power_key_event(pressed);
+        #ifdef BLEPIS_V2
+        else
+            handle_button_key_event(i, pressed);
+        #endif
 	}
 #endif
 
