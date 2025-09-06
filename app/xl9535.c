@@ -21,8 +21,27 @@ one bottom (U25, 0x26), address range from 46 to 61 (incl)
 static uint16_t IODIR = 0xffff; // Default are pins are inputs
 static uint16_t GPIO  = 0x0000; // Default are outputs are off
 
-void xl9535_init(void) {
+bool xl9535_detect(void) {
+    int ret;
+    uint8_t rxdata;
+    return true; // currently the function doesn't work for some reason
+    // my guess on the reason is that it wants register reads
+    // it's weird tho, this is just generic register read code.
+    // TODO debug with at least printfs
+/*    ret = i2c_read_blocking(i2c,  XL9535_TOP_ADDR, &rxdata, 1, false);
+    if (ret < 0)
+        return false;
+    ret = i2c_read_blocking(i2c,  XL9535_BOTTOM_ADDR, &rxdata, 1, false);
+    if (ret < 0)
+        return false;
+    return true;*/
+}
+
+
+bool xl9535_init(void) {
     i2c = get_shared_i2c_instance();
+    if (!xl9535_detect())
+        return false;
     #ifndef NDEBUG
         // some visual debug - disabling the charger IC and its associated LEDs
         xl9535_gpio_set_dir(PIN_CHG_DIS, true);
@@ -30,7 +49,7 @@ void xl9535_init(void) {
         sleep_ms(500);
         xl9535_gpio_put(PIN_CHG_DIS, false); // enabling charging
     #endif
-
+    return true;
 }
 
 uint8_t get_bit_pos(uint8_t gpio) {

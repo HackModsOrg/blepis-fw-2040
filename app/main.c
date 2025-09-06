@@ -21,17 +21,15 @@
 #include "touchpad.h"
 #include "pi.h"
 #include "shared_i2c.h"
+#ifdef BLEPIS
+    #include "vibromotor.h"
+    #include "peripherals.h"
+#endif
 #ifdef BLEPIS_V1
     #include "mcp23017.h"
 #endif
 #ifdef BLEPIS_V2
     #include "xl9535.h"
-#endif
-#ifdef PIN_VIBRO_DRV
-    #include "vibromotor.h"
-#endif
-#ifdef PIN_CHG_PWR
-    #include "peripherals.h"
 #endif
 
 // https://github.com/micropython/micropython/blob/5114f2c1ea7c05fc7ab920299967595cfc5307de/ports/rp2/modmachine.c#L179
@@ -80,6 +78,7 @@ int main(void)
 	rtc_init();
 
     #ifdef BLEPIS_V1
+        // MCP23017 is only used on Blepis v1
         #ifndef NDEBUG
 	        printf("mcp init\r\n");
         #endif
@@ -88,11 +87,28 @@ int main(void)
     #endif
 
     #ifdef BLEPIS_V2
+        // XL9535 is only used on Blepis v2
         #ifndef NDEBUG
 	        printf("xl9535 init\r\n");
         #endif
 
-	    xl9535_init();
+    	bool xl_found = xl9535_init();
+        // this mechanism is temporarily disabled because it doesn't work right now
+        // maybe? the xl_detect code needs to be rewritten to use register reads?
+        /*
+        if (!xl_found) { 
+            #ifndef NDEBUG
+            printf("one of xl9535 is not found, cannot boot\r\n");
+            #endif
+            while (true) {
+                // cannot proceed, so we just blink
+                dbg_light(urgb_u32(0xf*3, 0, 0));
+            	sleep_ms(500);
+                dbg_light(urgb_u32(0, 0, 0));
+            	sleep_ms(500);
+            }
+        } */
+
     #endif
 
     dbg_light(urgb_u32(0, 0xf*3, 0));
