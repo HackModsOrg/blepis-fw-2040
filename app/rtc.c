@@ -1,6 +1,8 @@
 #include "app_config.h"
 #include "rtc.h"
 
+#include <stdio.h>
+
 #include <pico/stdlib.h>
 #include <pico/util/datetime.h>
 #include <RP2040.h>
@@ -33,7 +35,10 @@ void rtc_set(uint8_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t min
 	t.sec = sec;
 	t.dotw = dow(t.year, month, day);
 
-	rtc_set_datetime(&t);
+	bool ret = rtc_set_datetime(&t);
+    if (!ret) {
+        printf("Failed to set rtc!");
+    }
 }
 
 uint8_t rtc_get(enum reg_id reg)

@@ -18,6 +18,7 @@
 #include "puppet_i2c.h"
 #include "usb.h"
 #include "reg.h"
+#include "rtc.h"
 #include "touchpad.h"
 #include "pi.h"
 #include "shared_i2c.h"
@@ -76,6 +77,7 @@ int main(void)
     #endif
 
 	rtc_init();
+    rtc_set(125, 9, 4, 5, 33, 00);
 
     #ifdef BLEPIS_V1
         // MCP23017 is only used on Blepis v1
@@ -186,7 +188,9 @@ int main(void)
 
     dbg_light(urgb_u32(0, 0, 0xf*3));
 
+
     #ifndef NDEBUG
+    	printf("rtc year %d\r\n", rtc_get(REG_ID_RTC_YEAR));
 	    printf("Starting main loop\r\n");
         uint16_t i = 0;
     #endif
