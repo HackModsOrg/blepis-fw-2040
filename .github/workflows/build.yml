@@ -39,8 +39,8 @@ jobs:
                     make
                     cmake -DPICO_BOARD=blepisv1 -DCMAKE_BUILD_TYPE=Debug ..
                     make
-                    #cmake -DPICO_BOARD=blepisv2 -DCMAKE_BUILD_TYPE=Debug ..
-                    #make
+                    cmake -DPICO_BOARD=blepisv2 -DCMAKE_BUILD_TYPE=Debug ..
+                    make
                     rm pico-flashloader.uf2
                     mv *.uf2 ../output/
 
