@@ -24,8 +24,9 @@
 #define XL9535_TOP_ADDR 0x24 // U27, addr range from 30 to 45 (inclusive)
 #define XL9535_BOTTOM_ADDR 0x26 // U25, addr range from 46 to 61 (inclusive)
 #define FUSB302_ADDR 0x22
-// 4 TMP102 sensors onboard, 0x49/0x4a/0x4b/0x4c
-#define TEMP_BASE_ADDR 0x49
+// 4 TMP102 sensors onboard, 0x48/0x49/0x4a/0x4b
+//                            U35/ U32/ U33/ U34
+#define TEMP_BASE_ADDR 0x48
 
 
 /** Beepy inherited pins **/
