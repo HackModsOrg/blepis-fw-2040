@@ -124,6 +124,7 @@ enum reg_id
 void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, uint8_t *out_len);
 
 uint8_t reg_get_value(enum reg_id reg);
+uint8_t reg_get_value_quiet(enum reg_id reg);
 void reg_set_value(enum reg_id reg, uint8_t value);
 
 bool reg_is_bit_set(enum reg_id reg, uint8_t bit);

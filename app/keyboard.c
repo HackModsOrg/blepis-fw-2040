@@ -282,7 +282,7 @@ static int64_t timer_task(alarm_id_t id, void *user_data)
 #endif
 
 	// negative value means interval since last alarm time
-	return -(reg_get_value(REG_ID_FRQ) * 1000);
+	return -(reg_get_value_quiet(REG_ID_FRQ) * 1000);
 }
 
 void keyboard_inject_event(uint8_t key, enum key_state state)
@@ -416,5 +416,5 @@ void keyboard_init(void)
 	sym_hold_key.col = 1;
 	sym_hold_key.state = KEY_STATE_IDLE;
 
-	add_alarm_in_ms(reg_get_value(REG_ID_FRQ), timer_task, NULL, true);
+	add_alarm_in_ms(reg_get_value_quiet(REG_ID_FRQ), timer_task, NULL, true);
 }

@@ -56,7 +56,9 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 	const uint8_t reg = (in_reg & ~PACKET_WRITE_MASK);
 	uint16_t adc_value;
 
-//	printf("read complete, is_write: %d, reg: 0x%02X\r\n", is_write, reg);
+    #ifndef NDEBUG
+	printf("read complete, is_write: %d, reg: 0x%02X\r\n", is_write, reg);
+    #endif
 
 	*out_len = 0;
 
@@ -445,6 +447,14 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 }
 
 uint8_t reg_get_value(enum reg_id reg)
+{
+#ifdef DEBUG_REGS
+	printf("%s: reg: 0x%02X, val: 0x%02X\r\n", __func__, reg, self.regs[reg]);
+#endif
+	return self.regs[reg];
+}
+
+uint8_t reg_get_value_quiet(enum reg_id reg)
 {
 	return self.regs[reg];
 }

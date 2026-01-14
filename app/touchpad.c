@@ -111,7 +111,7 @@ void touchpad_gpio_irq(uint gpio, uint32_t events)
 
 		// Reject if surface quality is below threshold
 		if (touchpad_read_i2c_u8(REG_SQUAL)
-		  < reg_get_value(REG_ID_TOUCHPAD_MIN_SQUAL)) {
+		  < reg_get_value_quiet(REG_ID_TOUCHPAD_MIN_SQUAL)) {
 			return;
 		}
 
