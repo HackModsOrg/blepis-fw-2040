@@ -47,8 +47,9 @@
 	5
 
 #define NUM_OF_BTNS			1
+#define POWER_BTN           4
 #define PINS_BTNS \
-	4,
+	POWER_BTN,
 #define BTN_KEYS \
 	{ KEY_POWER },
 

@@ -489,7 +489,7 @@ void dormant_until_power_key_down(void)
 
 	// Sleep until power key is pressed
 	sleep_run_from_xosc();
-	sleep_goto_dormant_until_pin(4, 0, 0);
+	sleep_goto_dormant_until_pin(POWER_BTN, 0, 0);
 
 	// Restore clocks, LED, backlight
 	sleep_resume(&ss);

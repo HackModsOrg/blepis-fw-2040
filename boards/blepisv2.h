@@ -101,8 +101,9 @@
 	4
 
 #define NUM_OF_BTNS			1
+#define POWER_BTN           3
 #define PINS_BTNS \
-	3, // COL7
+	POWER_BTN, // COL7
 #define BTN_KEYS \
 	{ KEY_POWER },
 
