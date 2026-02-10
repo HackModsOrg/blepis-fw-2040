@@ -87,7 +87,7 @@ void pi_power_on(enum power_on_reason reason)
 	// LED green while booting until driver loaded
 	state.setting = LED_SET_ON;
 	state.r = 0;
-	state.g = 128;
+	state.g = 32;
 	state.b = 0;
 	led_set(&state);
 
@@ -261,7 +261,7 @@ static inline void put_pixel() {
 
 #endif
 
-//static inline 
+//static inline
 void dbg_light(uint32_t dbg_light_grb) {
   #ifdef BLEPIS_V2
     dbg_pixel_grb = dbg_light_grb;
@@ -276,7 +276,7 @@ static void led_sync(bool enable, uint8_t r, uint8_t g, uint8_t b)
         #ifndef NDEBUG
             printf("led: 0x%02X/0x%02X/0x%02X\r\n", 0, 0, 0);
         #endif
-        pixel_grb = urgb_u32(0x00,0x00,0x00); //,0x00);
+        pixel_grb = urgb_u32(0x00,0x00,0x00);
 		put_pixel();
 		return;
 	}
@@ -284,7 +284,7 @@ static void led_sync(bool enable, uint8_t r, uint8_t g, uint8_t b)
         printf("led: 0x%02X/0x%02X/0x%02X\r\n", r, g, b);
     #endif
 
-    pixel_grb = urgb_u32(r,g,b); //,255);
+    pixel_grb = urgb_u32(r,g,b);
 	put_pixel();
 	#endif
 	#ifndef PIN_NEO_PIXEL
