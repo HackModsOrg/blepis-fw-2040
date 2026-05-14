@@ -45,6 +45,9 @@ static int64_t timer_task(alarm_id_t id, void *user_data)
 	return USB_TASK_INTERVAL_US;
 }
 
+#define MAX_KEYS 6
+uint8_t keycode[MAX_KEYS] = { 0 };
+
 static void key_cb(uint8_t key, enum key_state state)
 {
     if (!tud_ready()) {
@@ -52,11 +55,36 @@ static void key_cb(uint8_t key, enum key_state state)
     }
     bool do_not_forward = key == KEY_COMPOSE;
 	if (tud_hid_n_ready(USB_ITF_KEYBOARD) && reg_is_bit_set(REG_ID_CF2, CF2_USB_KEYB_ON) && !do_not_forward) {
-		uint8_t keycode[6] = { 0 };
 		uint8_t modifiers = 0;
 
 		if (state == KEY_STATE_PRESSED) {
-			keycode[0] = key;
+            //printf("b %X %X %X %X %X %X\r\n", keycode[0], keycode[1], keycode[2], keycode[3], keycode[4], keycode[5]);
+            bool already_tracked = false;
+            for (int i=0; i<MAX_KEYS; i++) {
+                if (keycode[i] == key) {
+                    already_tracked = true;
+                }
+            }
+            if (!already_tracked) {
+                for (int i=0; i<MAX_KEYS; i++) {
+                    if (keycode[i] == 0) {
+                        keycode[i] = key;
+                        break;
+                    }
+                }
+            }
+            //printf("a %X %X %X %X %X %X\r\n", keycode[0], keycode[1], keycode[2], keycode[3], keycode[4], keycode[5]);
+		}
+
+		if (state == KEY_STATE_RELEASED) {
+            //printf("b %X %X %X %X %X %X\r\n", keycode[0], keycode[1], keycode[2], keycode[3], keycode[4], keycode[5]);
+            for (int i=0; i<MAX_KEYS; i++) {
+                if (keycode[i] == key) {
+                    keycode[i] = 0;
+                    //break;
+                }
+            }
+            //printf("a %X %X %X %X %X %X\r\n", keycode[0], keycode[1], keycode[2], keycode[3], keycode[4], keycode[5]);
 		}
 
 		if (state != KEY_STATE_HOLD) {
