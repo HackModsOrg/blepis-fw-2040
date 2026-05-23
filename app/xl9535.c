@@ -5,79 +5,304 @@
 #include "shared_i2c.h"
 #include "xl9535.h"
 
+#define INP_REG 0x00 // output regs are 0x02, 0x03
 #define OUT_REG 0x02 // output regs are 0x02, 0x03
 #define DIR_REG 0x06 // config regs are 0x06, 0x07
 
 static i2c_inst_t* i2c = NULL;
+
+uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg);
+void xl_write_u16(uint8_t exp_addr, uint8_t reg, uint16_t val);
+void xl9535_gpio_update(uint8_t exp_num);
+uint16_t gpio_bit_set(uint8_t gpio, uint8_t set, uint16_t value);
+bool gpio_bit_get(uint16_t value, uint8_t gpio);
+uint8_t get_bit_pos(uint8_t gpio);
 
 /* Blepis v2 has two XL9535 GPIO expanders,
 one top    (U27, 0x24), address range from 30 to 45 (incl)
 one bottom (U25, 0x26), address range from 46 to 61 (incl)
 */
 
-#define XL_TOP_MAX_GPIO 45 // biggest possible gpio number for top XL9535
-#define RP2040_MAX_GPIO 29 // biggest possible gpio for RP2040
+/* Snowdive v0 has two/four XL9535 GPIO expanders,
+bottom board:
+one left    (U21, 0x26), address range from 30 to 45 (incl)
+one right   (U28, 0x27), address range from 46 to 61 (incl)
+top board, when powered/connected:
+one left    (U27, 0x24), address range from 62 to 77 (incl) ??
+one right   (U25, 0x25), address range from 78 to 93 (incl) ??
+*/
 
-static uint16_t IODIR = 0xffff; // Default are pins are inputs
-static uint16_t GPIO  = 0x0000; // Default are outputs are off
+#ifdef BLEPIS_V2
+#define EXPANDER_MAX_AMOUNT 2
+uint8_t XL9535_ADDRS[EXPANDER_MAX_AMOUNT] = {XL9535_TOP_ADDR, XL9535_BOTTOM_ADDR};
+#endif
+#ifdef SNOWDIVE_BTM_PALMTOP_V0
+#define EXPANDER_MAX_AMOUNT 4
+uint8_t XL9535_ADDRS[EXPANDER_MAX_AMOUNT] = {XL9535_BTM_LEFT_ADDR, XL9535_BTM_RIGHT_ADDR, XL9535_TOP_LEFT_ADDR, XL9535_TOP_RIGHT_ADDR};
+#endif
 
-bool xl9535_detect(void) {
-    int ret;
-    uint8_t rxdata;
-    return true; // currently the function doesn't work for some reason
-    // my guess on the reason is that it wants register reads
-    // it's weird tho, this is just generic register read code.
-    // TODO debug with at least printfs
-/*    ret = i2c_read_blocking(i2c,  XL9535_TOP_ADDR, &rxdata, 1, false);
-    if (ret < 0)
-        return false;
-    ret = i2c_read_blocking(i2c,  XL9535_BOTTOM_ADDR, &rxdata, 1, false);
-    if (ret < 0)
-        return false;
-    return true;*/
+#define RP2040_MAX_GPIO 29 // last gpio possible for RP2040
+// ofc this will have to be updated once we have RP2350 versions going on :3
+
+static uint16_t IODIR[EXPANDER_MAX_AMOUNT];
+static uint16_t GPIO[EXPANDER_MAX_AMOUNT];
+static uint16_t INPUT[EXPANDER_MAX_AMOUNT];
+
+bool xl9535_detect_from_to(int from, int to) {
+    int ret, ret1, ret2;
+    uint8_t reg = 0;
+	uint8_t val[2];
+    for(int exp_num=from; exp_num<to; exp_num++) {
+        uint8_t exp_addr = XL9535_ADDRS[exp_num];
+
+        ret1 = i2c_write_blocking(i2c, exp_addr, &reg, sizeof(reg), true);
+        ret2 = i2c_read_blocking(i2c, exp_addr, val, sizeof(val), false);
+
+        ret = ret1 | ret2;
+        //printf("PROBE FAIL 0x%X 0x%X, %d %d\r\n", exp_addr, reg, ret1, ret2);
+        if (ret < 1) {
+            printf("PROBE FAIL 0x%X 0x%X, %d %d\r\n", exp_addr, reg, ret1, ret2);
+            //#ifdef SNOWDIVE_BTM_PALMTOP_V0
+            //    if (exp_num > 1) {
+            //        // ignore, expanders 2 and 3 can be absent
+            //    } else { return false; }
+            //#else
+            return false;
+            //#endif
+        }
+    }
+    return true;
 }
 
+bool xl9535_detect() {
+    //uint8_t expanders_to_detect = to; // currently only two expanders are guaranteed to be present on both boards
+    //uint8_t expanders_to_detect = EXPANDER_MAX_AMOUNT;
+    return xl9535_detect_from_to(0, 2); // currently only two expanders are guaranteed to be present on either board
+}
+
+#ifdef SNOWDIVE_BTM_PALMTOP_V0
+bool xl9535_detect_aux_expanders() {
+    return xl9535_detect_from_to(2, 4); // expanders 2 and 3 are auxiliary on Snowdive boards
+}
+#endif
+
+void xl9535_enable_irq(void) {
+    // only set up interrupts well after all is well and done
+    //gpio_set_irq_enabled(PIN_XL9535_TOP_INT, GPIO_IRQ_LEVEL_LOW, true);
+    gpio_set_irq_enabled(PIN_XL9535_BOTTOM_INT, GPIO_IRQ_LEVEL_LOW, true);
+}
 
 bool xl9535_init(void) {
+    int ret;
+    // "preliminary" init of variables
+    for (int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
+        IODIR[exp_num] = 0xffff; // Default: all pins are inputs
+        GPIO[exp_num] = 0x0000; // Default: all outputs are off
+        INPUT[exp_num] = 0xffff; // Default: all inputs are high
+    }
+    gpio_init(PIN_XL9535_TOP_INT);
+    gpio_init(PIN_XL9535_BOTTOM_INT);
+    gpio_set_dir(PIN_XL9535_TOP_INT, GPIO_IN);
+    gpio_set_dir(PIN_XL9535_BOTTOM_INT, GPIO_IN);
+    // interrupt GPIOs don't have pullups on our boards
+    // and even if they do, it's safer this way
+    // (even after we get interrupts, it'll also help once the top board is disconnected)
+    gpio_pull_up(PIN_XL9535_TOP_INT);
+    gpio_pull_up(PIN_XL9535_BOTTOM_INT);
     i2c = get_shared_i2c_instance();
     if (!xl9535_detect())
         return false;
+    // populate the registers
+    // two out of four reads will be failures on a standalone Snowdive keyboard, so let's just do two first:
+    // both Blepis v2-v3 and Snowdive v0 require two expanders to be present
+    uint8_t required_expanders = 2;
+    for(int exp_num=0; exp_num<required_expanders; exp_num++) {
+        uint8_t xl_addr = XL9535_ADDRS[exp_num];
+        IODIR[exp_num] = xl_read_u16(xl_addr, DIR_REG);
+        GPIO[exp_num] = xl_read_u16(xl_addr, OUT_REG);
+        xl9535_gpio_update(exp_num);
+    }
+    #ifdef SNOWDIVE_BTM_PALMTOP
+    // first, let's ensure access to the two extra GPIO expanders, by switching IOMUX_SEL
+    xl9535_gpio_put(PIN_IO_MUX_SEL, 0);
+    xl9535_gpio_set_dir(PIN_IO_MUX_SEL, GPIO_OUT);
+    if (xl9535_detect_aux_expanders()) {
+        // only actually read default values into registers if the aux expanders are present!
+        for(int exp_num=2; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
+            uint8_t xl_addr = XL9535_ADDRS[exp_num];
+            IODIR[exp_num] = xl_read_u16(xl_addr, DIR_REG);
+            GPIO[exp_num] = xl_read_u16(xl_addr, OUT_REG);
+            xl9535_gpio_update(exp_num);
+        }
+    } else {
+        printf("aux expander detect fail\r\n");
+    }
+    #endif
+    #ifdef SNOWDIVE_BTM_PALMTOP_V0
+    // as-soon-as-possible values (especially relevant on snowdive v0
+    xl9535_gpio_set_dir(PIN_PI_PWR, GPIO_OUT);
+    xl9535_gpio_put(PIN_PI_PWR, 0);
+    #endif
+    // a little debug
+    for(int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
+        printf("test4 OUT %d 0x%X\r\n",exp_num, GPIO[exp_num]);
+        printf("test4 INP %d 0x%X\r\n",exp_num, INPUT[exp_num]);
+        printf("test4 IOD %d 0x%X\r\n\r\n",exp_num, IODIR[exp_num]);
+    }
+    //printf("test5\r\n");
+    //sleep_ms(300);
     #ifndef NDEBUG
         // some visual debug - disabling the charger IC and its associated LEDs
+        //get_bit_pos(30);
         xl9535_gpio_set_dir(PIN_CHG_DIS, true);
         xl9535_gpio_put(PIN_CHG_DIS, true);
         sleep_ms(500);
         xl9535_gpio_put(PIN_CHG_DIS, false); // enabling charging
+        sleep_ms(2000);
     #endif
     return true;
 }
 
-uint8_t get_bit_pos(uint8_t gpio) {
+uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
+{
+	uint8_t val[2];
+    int ret, ret1, ret2;
+
+	ret1 = i2c_write_blocking(i2c, exp_addr, &reg, sizeof(reg), true);
+	ret2 = i2c_read_blocking(i2c, exp_addr, val, sizeof(val), false);
+
+    ret = ret1 | ret2;
+    if (ret < 1) {
+        //printf("FAIL 0x%X 0x%X, %d %d\r\n", exp_addr, reg, ret1, ret2);
+        return 0;
+    }
+
+    uint16_t value = 0;
+    value |= ( (uint16_t)val[1] ) << 8;
+    value |= val[0];
+    printf("SUCC 0x%X 0x%X, (0x%X 0x%X 0x%X) %d %d\r\n", exp_addr, reg, val[0], val[1], value, ret1, ret2);
+    return value;
+}
+
+void xl_write_u16(uint8_t exp_addr, uint8_t reg, uint16_t val)
+{
+	uint8_t buffer[3] = { reg, (uint8_t)(val), (uint8_t)(val >> 8)};
+	i2c_write_blocking(i2c, exp_addr, buffer, sizeof(buffer), false);
+}
+
+volatile bool xl_irq_fired = false;
+
+void xl9535_gpio_irq(uint8_t gpio, uint32_t events) {
+    printf("irq_sta %d %d\r\n", gpio_get(PIN_XL9535_TOP_INT), gpio_get(PIN_XL9535_BOTTOM_INT) );
+    if ((gpio != PIN_XL9535_TOP_INT) && (gpio != PIN_XL9535_BOTTOM_INT))
+        return;
+    //printf("%d ", events);
+    if ( !(events & GPIO_IRQ_LEVEL_LOW) )
+		return;
+    xl_irq_fired = true;
+    #ifdef BLEPIS_V2
+    if (gpio == PIN_XL9535_TOP_INT)
+        xl9535_gpio_update(0);
+    if (gpio == PIN_XL9535_BOTTOM_INT)
+        xl9535_gpio_update(1);
+    #endif
+    #ifdef SNOWDIVE_BTM_PALMTOP_V0
+    // INTs are joined for top and bottom due to lack of pin-itis
+    if (gpio == PIN_XL9535_BOTTOM_INT) {
+        xl9535_gpio_update(0);
+        xl9535_gpio_update(1);
+    }
+    if (gpio == PIN_XL9535_TOP_INT) {
+        xl9535_gpio_update(2);
+        xl9535_gpio_update(3);
+    }
+    #endif
+}
+
+void xl9535_gpio_update(uint8_t exp_num) {
+    uint8_t xl_addr = XL9535_ADDRS[exp_num];
+    INPUT[exp_num] = xl_read_u16(xl_addr, INP_REG);
+}
+
+/* Blepis v2 has two XL9535 GPIO expanders,
+one top    (U27, 0x24), address range from 30 to 45 (incl)
+one bottom (U25, 0x26), address range from 46 to 61 (incl)
+*/
+
+/* Snowdive v0 has two/four XL9535 GPIO expanders,
+bottom board:
+one left    (U21, 0x26), address range from 30 to 45 (incl)
+one right   (U28, 0x27), address range from 46 to 61 (incl)
+top board, when powered/connected:
+one left    (U27, 0x24), address range from 62 to 77 (incl) ??
+one right   (U25, 0x25), address range from 78 to 93 (incl) ??
+*/
+
+uint8_t get_expander_num(uint8_t gpio) {
     // TODO this algo will be rearranged depending on how GPIOs are mapped into registers
     // and how the reg uint16_t maps onto i2c bytes sent
     // TODO: check algo before running!!!
-    uint8_t pos = gpio; // likely extraneous
-    if ( gpio > XL_TOP_MAX_GPIO) { // >45, i.e. 51 and 59
-        // gpio belongs to bottom expander
-        pos = gpio - XL_TOP_MAX_GPIO; // -45, so, 6 and 12
-        // two ranges, 46-53 and 54-61
-        if (gpio > XL_TOP_MAX_GPIO+8 ) { // >53, so, fits 59 aka 12
-            pos = pos - 8; // 12-8 = bit position  4
-        } else { // <= 53, so, fits 51 aka 6
-            pos = pos + 8; // 6+8  = bit position 12
-        }
-    } else { // <=45, i.e. 32 and 44
-        // gpio belongs to top expander
-        pos = gpio - RP2040_MAX_GPIO; // -29, so, 3 and 15
-        if (gpio > RP2040_MAX_GPIO+8 ) { // >37, so, fits 44 aka 15
-            pos = pos - 8; // 15-8 = bit position 7
-        } else { // <=37, so, fits 32 aka 3
-            pos = pos + 8; // 3+8 = bit position 11
+    uint8_t exp_number = EXPANDER_MAX_AMOUNT;
+    uint8_t start_gpio, end_gpio;
+
+    for (int i=0; i<EXPANDER_MAX_AMOUNT; i++) {
+        start_gpio = RP2040_MAX_GPIO + 1 + i*16;
+        end_gpio = start_gpio + 15;
+        if (gpio >= start_gpio && gpio <= end_gpio) {
+            exp_number = i; break;
         }
     }
-    // example edgecase: 38, 38-29=9, >37, so, -8, bit position 1, has to be 0.
-    // conclusion: needs -1
-    return pos-1;
+    return exp_number;
+}
+
+uint8_t get_bit_pos(uint8_t gpio) {
+    uint8_t exp_num = get_expander_num(gpio);
+
+    uint8_t start_gpio, end_gpio;
+    start_gpio = RP2040_MAX_GPIO + 1 + exp_num*16;
+    end_gpio = start_gpio + 15;
+
+    //uint8_t pos = 0;
+    uint8_t pos = gpio - start_gpio; // base number for the expander
+
+    //printf("pos %d %d %d\r\n", gpio, exp_num, pos);
+
+    /*if (gpio > 7 ) { // >53, so, fits 59 aka 12
+        pos = pos - 8; // 12-8 = bit position  4
+    } else { // <= 53, so, fits 51 aka 6
+        pos = pos + 8; // 6+8  = bit position 12
+    }*/
+    // sanity check based on an edgecase: 38, 38-30=8, >37, so, -8, bit position 0
+    return pos;
+}
+
+void xl9535_gpio_put(uint8_t gpio, uint8_t value) {
+    uint8_t exp_num = get_expander_num(gpio);
+    uint8_t xl_addr = XL9535_ADDRS[exp_num];
+    uint16_t gpio_val = gpio_bit_set(gpio, value, GPIO[exp_num]);
+    xl_write_u16(xl_addr, OUT_REG, gpio_val);
+    GPIO[exp_num] = gpio_val;
+}
+
+// TODO
+bool xl9535_gpio_get(uint8_t gpio) {
+    // this function reads directly from cached values, which only get updated when an interrupt happens
+    uint8_t exp_num = get_expander_num(gpio);
+    return gpio_bit_get(INPUT[exp_num], gpio);
+}
+
+void xl9535_gpio_set_dir(uint8_t gpio, uint8_t out) {
+    uint8_t exp_num = get_expander_num(gpio);
+    uint8_t xl_addr = XL9535_ADDRS[exp_num];
+    uint16_t iodir_val = gpio_bit_set(gpio, !out, IODIR[exp_num]);
+    xl_write_u16(xl_addr, DIR_REG, iodir_val);
+    IODIR[exp_num] = iodir_val;
+}
+
+// TODO
+bool xl9535_gpio_get_dir(uint8_t gpio) {
+    uint8_t exp_num = get_expander_num(gpio);
+    return gpio_bit_get(IODIR[exp_num], gpio);
 }
 
 uint16_t gpio_bit_set(uint8_t gpio, uint8_t set, uint16_t value) {
@@ -89,45 +314,17 @@ uint16_t gpio_bit_set(uint8_t gpio, uint8_t set, uint16_t value) {
     return value;
 }
 
-
-
-uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
-{
-	uint8_t val[2];
-
-	i2c_write_blocking(i2c, exp_addr, &reg, sizeof(reg), true);
-	i2c_read_blocking(i2c, exp_addr, val, sizeof(val), false);
-
-	return (uint16_t)((uint16_t)((val[0]) << 8) || (uint16_t)((val[1])));
+bool gpio_bit_get(uint16_t value, uint8_t gpio) {
+    uint8_t pos = get_bit_pos(gpio);
+    return ( value >> pos & 1 ) & 0x1;
 }
 
-void xl_write_u16(uint8_t exp_addr, uint8_t reg, uint16_t val)
-{
-	uint8_t buffer[3] = { reg, (uint8_t)(val >> 8), (uint8_t)(val)};
-	i2c_write_blocking(i2c, exp_addr, buffer, sizeof(buffer), false);
-}
-
-void xl9535_gpio_irq(uint8_t gpio, uint32_t events) {
-    if ((gpio != PIN_XL9535_TOP_INT) || !(events & GPIO_IRQ_EDGE_FALL)) {
-		return;
-	}
-    // TODO: this can be done later but yeah some basic stuff is already
-}
-
-/* Blepis v2 has two XL9535 GPIO expanders,
-one top    (U27, 0x24), address range from 30 to 45 (incl)
-one bottom (U25, 0x26), address range from 46 to 61 (incl)
-*/
-
-void xl9535_gpio_put(uint8_t gpio, uint8_t value) {
-    GPIO = gpio_bit_set(gpio, value, GPIO);
-    uint8_t xl_addr = gpio > XL_TOP_MAX_GPIO ? XL9535_BOTTOM_ADDR : XL9535_TOP_ADDR;
-    xl_write_u16(xl_addr, OUT_REG, GPIO);
-}
-
-void xl9535_gpio_set_dir(uint8_t gpio, uint8_t out) {
-    uint8_t xl_addr = gpio > XL_TOP_MAX_GPIO ? XL9535_BOTTOM_ADDR : XL9535_TOP_ADDR;
-    IODIR = gpio_bit_set(gpio, !out, IODIR);
-    xl_write_u16(xl_addr, DIR_REG, IODIR);
-
+void xl9535_debug() {
+    for(int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
+    //for(int exp_num=0; exp_num<2; exp_num++) {
+        printf("test6 IRQ %d\r\n", xl_irq_fired);
+        printf("test6 OUT %d 0x%X\r\n", exp_num, GPIO[exp_num]);
+        printf("test6 INP %d 0x%X\r\n", exp_num, INPUT[exp_num]);
+        printf("test6 IOD %d 0x%X\r\n\r\n", exp_num, IODIR[exp_num]);
+    }
 }

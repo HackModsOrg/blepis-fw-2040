@@ -12,6 +12,12 @@ if(PICO_BOARD STREQUAL "blepisv2")
     message(PICO_BOARD="${PICO_BOARD}")
 endif()
 
+if(PICO_BOARD STREQUAL "snowdive_btm_palmtop_v0")
+    # same peripherals as on the Blepis v2 - FOR NOW
+    set(EXTRA_SOURCES ${EXTRA_SOURCES} vibromotor.c peripherals.c xl9535.c usbc.c)
+    message(PICO_BOARD="${PICO_BOARD}")
+endif()
+
 if(PICO_BOARD STREQUAL "beepy")
     set(EXTRA_SOURCES gpioexp.c)
     message(PICO_BOARD="${PICO_BOARD}")
@@ -45,7 +51,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 target_include_directories(firmware PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
-if((PICO_BOARD STREQUAL "blepisv1") OR (PICO_BOARD STREQUAL "blepisv2"))
+if((PICO_BOARD STREQUAL "blepisv1") OR (PICO_BOARD STREQUAL "blepisv2") OR (PICO_BOARD STREQUAL "snowdive_btm_palmtop_v0"))
     pico_generate_pio_header(firmware ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)
 endif()
 

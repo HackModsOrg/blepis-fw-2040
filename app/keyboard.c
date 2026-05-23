@@ -30,6 +30,8 @@ static const uint8_t col_pins[NUM_OF_COLS] =
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
+#if defined(BEEPY) || defined(BLEPIS)
+//q20 pinout
 static const uint8_t kbd_entries[NUM_OF_ROWS][NUM_OF_COLS] =
 //  Touchpad center key
 { { KEY_COMPOSE, KEY_W, KEY_G, KEY_S, KEY_L, KEY_H }
@@ -43,6 +45,19 @@ static const uint8_t kbd_entries[NUM_OF_ROWS][NUM_OF_COLS] =
 , {     KEY_ESC, /*KEY_LEFTALT*/0x0, KEY_V, KEY_X, KEY_MUTE, KEY_B }
 , {         0x0, KEY_A, /*KEY_RIGHTSHIFT*/0x0, KEY_P, KEY_BACKSPACE, KEY_ENTER }
 };
+#elif defined(SNOWDIVE_BTM_PALMTOP)
+// keebdeck custom pinout
+static const uint8_t kbd_entries[NUM_OF_ROWS][NUM_OF_COLS] =
+{ { KEY_GRAVE, KEY_TAB,        KEY_COMPOSE,   KEY_LEFTSHIFT,       KEY_1,         KEY_Q,         KEY_A,          KEY_Z },
+  { KEY_2,     KEY_W,          KEY_S,         KEY_X,               KEY_3,         KEY_E,         KEY_D,          KEY_C },
+  { KEY_4,     KEY_R,          KEY_F,         KEY_V,               KEY_5,         KEY_T,         KEY_G,          KEY_B },
+  { KEY_6,     KEY_Y,          KEY_H,         KEY_N,               KEY_7,         KEY_U,         KEY_J,          KEY_M },
+  { KEY_8,     KEY_I,          KEY_K,         KEY_COMMA,           KEY_9,         KEY_O,         KEY_L,          KEY_DOT },
+  { KEY_0,     KEY_P,          KEY_SEMICOLON, KEY_SLASH,           KEY_MINUS,     KEY_LEFTBRACE, KEY_APOSTROPHE, KEY_UP},
+  { KEY_EQUAL, KEY_RIGHTBRACE, KEY_ENTER,     KEY_RIGHTSHIFT,      KEY_RIGHTALT,  KEY_RIGHT,     KEY_DOWN,       KEY_LEFT },
+  { KEY_ESC,   KEY_BACKSLASH,  KEY_RIGHTMETA, KEY_MEDIA_PLAYPAUSE, KEY_BACKSPACE, KEY_LEFTALT,   KEY_RIGHTCTRL,  KEY_SPACE },
+};
+#endif
 static bool kbd_pressed[NUM_OF_ROWS][NUM_OF_COLS] = {};
 
 #if NUM_OF_BTNS > 0

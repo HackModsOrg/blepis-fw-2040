@@ -41,6 +41,8 @@ jobs:
                     make
                     cmake -DPICO_BOARD=blepisv2 -DCMAKE_BUILD_TYPE=Debug ..
                     make
+                    cmake -DPICO_BOARD=snowdive_btm_palmtop_v0 -DCMAKE_BUILD_TYPE=Debug ..
+                    make
                     rm pico-flashloader.uf2
                     mv *.uf2 ../output/
 

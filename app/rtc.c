@@ -1,5 +1,7 @@
 #include "app_config.h"
 #include "rtc.h"
+#include "gpio.h"
+#include "shared_i2c.h"
 
 #include <stdio.h>
 
@@ -57,4 +59,36 @@ uint8_t rtc_get(enum reg_id reg)
 	}
 
 	return 0;
+}
+
+bool disable_i2c_rtc_clk() {
+    printf("1\r\n");
+    i2c_inst_t* puppet_host_i2c = get_puppet_shared_i2c_instance();
+    i2c_scan(puppet_host_i2c);
+    //uni_gpio_put(PIN_IO_MUX_SEL, 1); // disconnect top I2C expanders; works
+    bool success = false;
+    uint8_t buffer[2] = { 0x27, 0x8f };
+    int ret;
+        uni_gpio_put(PIN_I2C_PU_PWR, 1);
+        uni_gpio_set_dir(PIN_I2C_PU_PWR, GPIO_OUT);
+    sleep_ms(200);
+    for (int i=0;i<3;i++) {
+        i2c_scan(puppet_host_i2c);
+        printf("2\r\n");
+        printf("3\r\n");
+        ret = i2c_write_timeout_us(puppet_host_i2c, 0x51, buffer, sizeof(buffer), false, 100000);
+        printf("4\r\n");
+        printf("rtc shutup %d \r\n", ret);
+        if (ret > 0) {
+            uni_gpio_put(PIN_IO_MUX_SEL, 0); // reconnect top I2C
+            return true;
+        }
+        sleep_ms(100*i);
+    }
+    //uni_gpio_put(PIN_IO_MUX_SEL, 0); // reconnect top I2C
+    i2c_scan(puppet_host_i2c);
+    if (ret < 0) {
+        return false;
+    }
+    return true;
 }

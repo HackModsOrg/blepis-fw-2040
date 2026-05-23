@@ -12,11 +12,11 @@
 #ifdef BLEPIS_V1
     #include "mcp23017.h"
 #endif
-#ifdef BLEPIS_V2
+#if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     #include "xl9535.h"
 #endif
 
-#define RP2040_MAX_GPIO 29 // biggest possible gpio for RP2040
+#define RP2040_MAX_GPIO 29 // last gpio for RP2040
 
 void uni_gpio_init(uint8_t gpio) {
     if (gpio <= RP2040_MAX_GPIO) {
@@ -28,7 +28,7 @@ void uni_gpio_init(uint8_t gpio) {
         return;
     }
     #endif
-    #ifdef BLEPIS_V2
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         // do nothing
         return;
@@ -48,7 +48,7 @@ void uni_gpio_set_dir(uint8_t gpio, bool out) {
         return;
     }
     #endif
-    #ifdef BLEPIS_V2
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         xl9535_gpio_set_dir(gpio, out);
         return;
@@ -57,16 +57,17 @@ void uni_gpio_set_dir(uint8_t gpio, bool out) {
     return;
 }
 
-/* TODO untested
 bool uni_gpio_get_dir(uint8_t gpio) {
     if (gpio <= RP2040_MAX_GPIO)
         return gpio_get_dir(gpio);
+    /*
     #ifdef BLEPIS_V1
     if (gpio > RP2040_MAX_GPIO) {
         return mcp23017_gpio_get_dir(out);
     }
     #endif
-    #ifdef BLEPIS_V2
+    */
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         // TODO XL9535 support
         //return xl9535_gpio_get_dir(gpio);
@@ -74,7 +75,6 @@ bool uni_gpio_get_dir(uint8_t gpio) {
     #endif
     return 0;
 }
-*/
 
 void uni_gpio_put(uint8_t gpio, bool value) {
     if (gpio <= RP2040_MAX_GPIO) {
@@ -87,7 +87,7 @@ void uni_gpio_put(uint8_t gpio, bool value) {
         return;
     }
     #endif
-    #ifdef BLEPIS_V2
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         xl9535_gpio_put(gpio, value);
         return;
@@ -106,10 +106,9 @@ bool uni_gpio_get(uint8_t gpio) {
         return 0;
     }
     #endif
-    #ifdef BLEPIS_V2
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
-        //return xl9535_gpio_get(gpio); // unimplemented right now
-        return 0;
+        return xl9535_gpio_get(gpio);
     }
     #endif
     return 0;

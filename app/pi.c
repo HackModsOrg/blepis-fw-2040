@@ -12,7 +12,7 @@
 #include "gpioexp.h"
 #endif
 
-#ifdef BLEPIS
+#if defined(BLEPIS) || defined(SNOWDIVE)
 #include "peripherals.h"
 #include "ws2812.pio.h"
 #include "hardware/pio.h"
@@ -60,7 +60,7 @@ void pi_power_init(void)
 	uni_gpio_init(PIN_PI_PWR);
 	uni_gpio_set_dir(PIN_PI_PWR, GPIO_OUT);
 	uni_gpio_put(PIN_PI_PWR, 0);
-    #ifdef BLEPIS
+    #if defined(BLEPIS) || defined(SNOWDIVE)
 	    uni_gpio_set_dir(PIN_DISP_RST, GPIO_OUT);
     	uni_gpio_put(PIN_DISP_RST, 1);
     #endif
@@ -75,7 +75,8 @@ void pi_power_on(enum power_on_reason reason)
 		return;
 	}
 
-    #ifdef BLEPIS
+	reg_set_value(REG_ID_BKL, 0xff);
+    #if defined(BLEPIS) || defined(SNOWDIVE)
     	uni_gpio_put(PIN_DISP_RST, 1); //display RST starts out deasserted
     #endif
 	uni_gpio_put(PIN_PI_PWR, 1);
@@ -94,8 +95,8 @@ void pi_power_on(enum power_on_reason reason)
 	// Update startup reason
 	reg_set_value(REG_ID_STARTUP_REASON, reason);
     // Blepis-specific stuff - 5V boost control if appropriate, and display reset toggle
-    #ifdef BLEPIS
-        #ifdef BLEPIS_V2
+    #if defined(BLEPIS) || defined(SNOWDIVE)
+        #if defined(BLEPIS_V2) || defined(SNOWDIVE)
             boost_enable(); // enabling boost a little bit before powering up the Pi
         #endif
     	uni_gpio_put(PIN_DISP_RST, 0); // Assert display RESET
@@ -252,7 +253,7 @@ uint32_t dbg_pixel_grb = 0;
 
 #ifdef PIN_NEO_PIXEL
 static inline void put_pixel() {
-    #ifdef BLEPIS_V2
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
       // two neopixels, first one is debug pixel and needs to keep getting updated
       pio_sm_put_blocking(pio0, 0, dbg_pixel_grb << 8u);
     #endif
@@ -263,7 +264,7 @@ static inline void put_pixel() {
 
 //static inline
 void dbg_light(uint32_t dbg_light_grb) {
-  #ifdef BLEPIS_V2
+  #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     dbg_pixel_grb = dbg_light_grb;
     put_pixel();
   #endif
