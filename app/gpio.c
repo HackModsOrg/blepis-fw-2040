@@ -11,8 +11,7 @@
 #include <stdio.h>
 #ifdef BLEPIS_V1
     #include "mcp23017.h"
-#endif
-#if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+#elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     #include "xl9535.h"
 #endif
 
@@ -27,8 +26,7 @@ void uni_gpio_init(uint8_t gpio) {
         // do nothing
         return;
     }
-    #endif
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         // do nothing
         return;
@@ -47,8 +45,7 @@ void uni_gpio_set_dir(uint8_t gpio, bool out) {
         mcp23017_gpio_set_dir(gpio, out);
         return;
     }
-    #endif
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         xl9535_gpio_set_dir(gpio, out);
         return;
@@ -57,20 +54,30 @@ void uni_gpio_set_dir(uint8_t gpio, bool out) {
     return;
 }
 
+void uni_gpio_pull_up(uint8_t gpio) {
+    if (gpio <= RP2040_MAX_GPIO)
+        gpio_pull_up(gpio);
+    #ifdef BLEPIS_V1
+    if (gpio > RP2040_MAX_GPIO) {
+        //mcp23017_gpio_pull_up(out); // not implemented yet
+    }
+    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    if (gpio > RP2040_MAX_GPIO) {
+        //xl9535_gpio_pull_up(gpio); // no such thing
+    }
+    #endif
+}
+
 bool uni_gpio_get_dir(uint8_t gpio) {
     if (gpio <= RP2040_MAX_GPIO)
         return gpio_get_dir(gpio);
-    /*
     #ifdef BLEPIS_V1
     if (gpio > RP2040_MAX_GPIO) {
-        return mcp23017_gpio_get_dir(out);
+        //return mcp23017_gpio_get_dir(out);
     }
-    #endif
-    */
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
-        // TODO XL9535 support
-        //return xl9535_gpio_get_dir(gpio);
+        return xl9535_gpio_get_dir(gpio);
     }
     #endif
     return 0;
@@ -86,8 +93,7 @@ void uni_gpio_put(uint8_t gpio, bool value) {
         mcp23017_gpio_put(gpio, value);
         return;
     }
-    #endif
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         xl9535_gpio_put(gpio, value);
         return;
@@ -105,11 +111,48 @@ bool uni_gpio_get(uint8_t gpio) {
         //return mcp23017_gpio_get(gpio); // unimplemented right now
         return 0;
     }
-    #endif
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
     if (gpio > RP2040_MAX_GPIO) {
         return xl9535_gpio_get(gpio);
     }
     #endif
     return 0;
+}
+
+void process_gpio_update(uint8_t gpio, bool new_state) {
+    // big pile of stuff!
+    #if defined(BLEPIS) || defined (SNOWDIVE_BTM_PALMTOP)
+    if (gpio == PIN_5V_PGOOD) {
+        printf("5V PGOOD %d\r\n", new_state);
+    }
+    if (gpio == PIN_FUSB_INT) {
+        printf("FUSB INT %d\r\n", new_state);
+    }
+    #endif
+    #ifdef SNOWDIVE_BTM_PALMTOP
+    if (gpio == PIN_5V_BTM_PGOOD) {
+        printf("5V BTM PGOOD %d\r\n", new_state);
+    }
+    else if (gpio == PIN_VINB_PGOOD) {
+        printf("VINB PGOOD %d\r\n", new_state);
+    }
+    else if (gpio == PIN_FUSB_TOP_INT) {
+        printf("FUSB TOP INT %d\r\n", new_state);
+    }
+    else if (gpio == PIN_WUSB_LEFT_INT) {
+        printf("WUSB LEFT INT %d\r\n", new_state);
+    }
+    else if (gpio == PIN_WUSB_RIGHT_INT) {
+        printf("WUSB RIGHT INT %d\r\n", new_state);
+    }
+    else if (gpio == PIN_USB_MUX_BTM_S_EN) {
+        printf("USB MUX BTM S EN %d\r\n", new_state);
+    }
+    else if (gpio == PIN_USBC_IN_FLG) {
+        printf("USBC IN FLG %d\r\n", new_state);
+    }
+    else if (gpio == PIN_USBC_OUT_FLG) {
+        printf("USBC OUT FLG %d\r\n", new_state);
+    }
+    #endif
 }

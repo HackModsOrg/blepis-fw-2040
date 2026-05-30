@@ -83,7 +83,7 @@ bool disable_i2c_rtc_clk() {
             uni_gpio_put(PIN_IO_MUX_SEL, 0); // reconnect top I2C
             return true;
         }
-        sleep_ms(100*i);
+        sleep_ms(100*(i+1));
     }
     //uni_gpio_put(PIN_IO_MUX_SEL, 0); // reconnect top I2C
     i2c_scan(puppet_host_i2c);

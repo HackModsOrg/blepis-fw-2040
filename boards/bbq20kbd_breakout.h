@@ -40,7 +40,7 @@
 #define PINS_BTNS \
 	10,
 #define BTN_KEYS \
-	{ KEY_BTN_RIGHT2 },
+	KEY_BTN_RIGHT2,
 
 #define PIN_GPIOEXP0		15
 #define PIN_GPIOEXP1		17

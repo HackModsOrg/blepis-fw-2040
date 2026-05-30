@@ -468,7 +468,7 @@ static void sleep_resume(struct sleep_state const* ss)
 	reg_set_value(REG_ID_BKL, ss->keyboard_backlight);
 
     // Restart USB callback - experimental
-    //reinit_usb();
+    //usb_reinit();
 }
 
 void dormant_until_power_key_down(void)

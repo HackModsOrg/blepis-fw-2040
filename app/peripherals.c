@@ -15,6 +15,24 @@ uint32_t extcomin_alarm_ms = 500;
 
 static int64_t extcomin_alarm_callback(alarm_id_t _, void* __);
 
+void init_unused_pins(void) {
+    #ifdef PIN_UNUSED1
+    uni_gpio_set_dir(PIN_UNUSED1, GPIO_OUT);
+    #endif
+    #ifdef PIN_UNUSED2
+    uni_gpio_set_dir(PIN_UNUSED3, GPIO_OUT);
+    #endif
+    #ifdef PIN_UNUSED3
+    uni_gpio_set_dir(PIN_UNUSED3, GPIO_OUT);
+    #endif
+    #ifdef PIN_UNUSED4
+    uni_gpio_set_dir(PIN_UNUSED4, GPIO_OUT);
+    #endif
+    #ifdef PIN_UNUSED5
+    uni_gpio_set_dir(PIN_UNUSED5, GPIO_OUT);
+    #endif
+}
+
 void peripherals_init(void)
 {
     // charging pins
@@ -45,24 +63,12 @@ void peripherals_init(void)
     usbmux_hub();
 	uni_gpio_set_dir(PIN_USB_MUX_TOP_C_SEL, GPIO_OUT);
 	uni_gpio_set_dir(PIN_USB_MUX_TOP_S_SEL, GPIO_OUT);
+    uni_gpio_put(PIN_USB_MUX_BTM_C_SEL, 0);
+    uni_gpio_put(PIN_USB_MUX_BTM_S_SEL, 1);
 	uni_gpio_set_dir(PIN_USB_MUX_BTM_C_SEL, GPIO_OUT);
 	uni_gpio_set_dir(PIN_USB_MUX_BTM_S_SEL, GPIO_OUT);
     #endif
-    #ifdef PIN_UNUSED1
-    uni_gpio_set_dir(PIN_UNUSED1, GPIO_OUT);
-    #endif
-    #ifdef PIN_UNUSED2
-    uni_gpio_set_dir(PIN_UNUSED3, GPIO_OUT);
-    #endif
-    #ifdef PIN_UNUSED3
-    uni_gpio_set_dir(PIN_UNUSED3, GPIO_OUT);
-    #endif
-    #ifdef PIN_UNUSED4
-    uni_gpio_set_dir(PIN_UNUSED4, GPIO_OUT);
-    #endif
-    #ifdef PIN_UNUSED5
-    uni_gpio_set_dir(PIN_UNUSED5, GPIO_OUT);
-    #endif
+    init_unused_pins(); // setting unused pins to low preemptively so that they don't cause an interrupt storm on our simple IO expanders
     // setting FUSB mux SEL to out before setting it high means FUSB would momentarily disappear from the bus.
     // however, on stock blepis v1, this means Zero and 2040 I2C buses getting short-circuit, which, is pretty bad and undesirable
     // which is why here I set value first and then init.
@@ -164,7 +170,7 @@ void usbmux_rp2040()
 {
     //printf("usmbux rp2040\r\n");
     #if defined(BLEPIS_V2)
-	uni_gpio_put(PIN_USB_MUX_SEL, 1);
+	uni_gpio_put(PIN_USB_MUX_SEL, 1); // mux polarity flipped on v2
     #elif defined(SNOWDIVE_BTM_PALMTOP)
     // no such thing
     #else
@@ -190,14 +196,22 @@ void fusbmux_zero()
 void uartmux_exp()
 {
     //printf("uartmux exp\r\n");
+    #ifdef SNOWDIVE_BTM_PALMTOP
+	uni_gpio_put(PIN_UART_MUX_SEL, 0);
+    #else
 	uni_gpio_put(PIN_UART_MUX_SEL, 1);
+    #endif
 }
 
-// switches uart to internal two pads
+// switches uart to internal two pads (or QWIIC in case of Snowdive)
 void uartmux_intl()
 {
     //printf("uartmux intl\r\n");
+    #ifdef SNOWDIVE_BTM_PALMTOP
+	uni_gpio_put(PIN_UART_MUX_SEL, 1);
+    #else
 	uni_gpio_put(PIN_UART_MUX_SEL, 0);
+    #endif
 }
 
 #endif

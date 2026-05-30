@@ -105,7 +105,7 @@
 #define PINS_BTNS \
 	POWER_BTN, // COL7
 #define BTN_KEYS \
-	{ KEY_POWER },
+	KEY_POWER,
 
 #define PIN_GPIOEXP0		PIN_PI_SHUTDOWN
 // #define PIN_GPIOEXP1		17

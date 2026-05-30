@@ -9,4 +9,5 @@ void xl9535_gpio_put(uint8_t gpio, uint8_t value);
 bool xl9535_gpio_get(uint8_t gpio);
 void xl9535_gpio_set_dir(uint8_t gpio, uint8_t out);
 bool xl9535_gpio_get_dir(uint8_t gpio);
-void xl9535_debug();
+void xl9535_debug(void);
+void xl9535_poll_inputs(void);

@@ -112,6 +112,9 @@ static struct key_callback key_callback = { .func = key_cb };
 
 static void touch_cb(int8_t x, int8_t y)
 {
+    if (!tud_ready()) {
+        return;
+    }
 	if (!tud_hid_n_ready(USB_ITF_MOUSE) || !reg_is_bit_set(REG_ID_CF2, CF2_USB_MOUSE_ON))
 		return;
 
@@ -172,22 +175,28 @@ mutex_t *usb_get_mutex(void)
 
 void usb_init(void)
 {
-	tusb_init();
+    usb_reinit();
+
+	//tusb_init();
+
+	irq_set_exclusive_handler(USB_LOW_PRIORITY_IRQ, low_priority_worker_irq);
+	irq_set_enabled(USB_LOW_PRIORITY_IRQ, true);
 
 	keyboard_add_key_callback(&key_callback);
 
 	touchpad_add_touch_callback(&touch_callback);
 
-	// create a new interrupt that calls tud_task, and trigger that interrupt from a timer
-	irq_set_exclusive_handler(USB_LOW_PRIORITY_IRQ, low_priority_worker_irq);
-	irq_set_enabled(USB_LOW_PRIORITY_IRQ, true);
+    	// create a new interrupt that calls tud_task, and trigger that interrupt from a timer
+	    /*irq_set_exclusive_handler(USB_LOW_PRIORITY_IRQ, low_priority_worker_irq);
+    	irq_set_enabled(USB_LOW_PRIORITY_IRQ, true);*/
 
 	mutex_init(&self.mutex);
-    usb_reinit();
+	add_alarm_in_us(USB_TASK_INTERVAL_US, timer_task, NULL, true);
 }
 
 
 void usb_reinit(void)
 {
-	add_alarm_in_us(USB_TASK_INTERVAL_US, timer_task, NULL, true);
+	// create a new interrupt that calls tud_task, and trigger that interrupt from a timer
+	tusb_init();
 }

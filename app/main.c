@@ -203,12 +203,15 @@ int main(void)
 
 	interrupt_init();
 
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    //#if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP) // needs cmakelists adjustment to work
+    #if defined(SNOWDIVE_BTM_PALMTOP)
         #ifndef NDEBUG
 	        printf("usbc init\r\n");
         #endif
         usbc_init();
     #endif
+
+    bool exp_interrupts_disabled = false;
 
     if (rtc_disabled) {
         #ifndef NDEBUG
@@ -217,6 +220,7 @@ int main(void)
 
         xl9535_enable_irq();
     } else {
+        exp_interrupts_disabled = true;
         #ifndef NDEBUG
 	        printf("RTC on, not enabling int\r\n");
         #endif
@@ -262,6 +266,12 @@ int main(void)
             //printf("loop iter %d\r\n", i);
             printf("irq_sta %d %d\r\n", gpio_get(PIN_XL9535_TOP_INT), gpio_get(PIN_XL9535_BOTTOM_INT) );
             xl9535_debug();
+        }
+        if ((i % 100 == 0) && exp_interrupts_disabled) {
+            //xl9535_poll_inputs(); // only needed for bottom expanders, at least
+            /*if (i % 1000 == 0) {
+                printf("polling %d\r\n", i);
+            }*/
         }
         #endif
 		__wfe();

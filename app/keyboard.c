@@ -5,6 +5,7 @@
 #include "pi.h"
 #include "gpio.h"
 
+#include <stdio.h>
 #include <pico/stdlib.h>
 
 // Size of the list keeping track of all the pressed keys
@@ -63,7 +64,7 @@ static bool kbd_pressed[NUM_OF_ROWS][NUM_OF_COLS] = {};
 #if NUM_OF_BTNS > 0
 
 // Call end key mapped to GPIO 4 (or 3 on Blepis v2)
-static const char btn_entries[NUM_OF_BTNS] = { KEY_POWER };
+static const char btn_entries[NUM_OF_BTNS] = { BTN_KEYS };
 static const uint8_t btn_pins[NUM_OF_BTNS] = { PINS_BTNS };
 #endif
 
@@ -155,7 +156,7 @@ static bool transition_hold_key_state(struct hold_key* hold_key, bool const pres
 
 static void handle_button_key_event(uint8_t i, bool pressed)
 {
-
+    //printf("key %d new state %d", i, pressed);
 }
 
 static void handle_power_key_event(bool pressed)
@@ -277,20 +278,27 @@ static int64_t timer_task(alarm_id_t id, void *user_data)
 	}
 
 	// Handle modifier hold keys
+    #ifndef SNOWDIVE_BTM_PALMTOP
 	handle_hold_key_event(&call_hold_key);
 	handle_hold_key_event(&berry_hold_key);
 	handle_hold_key_event(&leftshift_hold_key);
 	handle_hold_key_event(&rightshift_hold_key);
 	handle_hold_key_event(&alt_hold_key);
 	handle_hold_key_event(&sym_hold_key);
+    #endif
 
 #if NUM_OF_BTNS > 0
 	for (i = 0; i < NUM_OF_BTNS; i++) {
 		pressed = (uni_gpio_get(btn_pins[i]) == 0);
-        if (i == 0)
-           handle_power_key_event(pressed);
+        #if defined(BEEPY) || defined(BLEPIS)
+            if (i == 0)
+               handle_power_key_event(pressed);
+        #endif
         #ifdef BLEPIS_V2
-        else
+            else
+                handle_button_key_event(i, pressed);
+        #endif
+        #ifdef SNOWDIVE
             handle_button_key_event(i, pressed);
         #endif
 	}
@@ -390,9 +398,9 @@ void keyboard_init(void)
 	// GPIO buttons
 #if NUM_OF_BTNS > 0
 	for(i = 0; i < NUM_OF_BTNS; ++i) {
-		gpio_init(btn_pins[i]);
-		gpio_pull_up(btn_pins[i]);
-		gpio_set_dir(btn_pins[i], GPIO_IN);
+		uni_gpio_init(btn_pins[i]);
+		uni_gpio_pull_up(btn_pins[i]);
+		uni_gpio_set_dir(btn_pins[i], GPIO_IN);
 	}
 #endif
 

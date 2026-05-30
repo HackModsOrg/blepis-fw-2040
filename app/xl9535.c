@@ -4,6 +4,7 @@
 
 #include "shared_i2c.h"
 #include "xl9535.h"
+#include "gpio.h"
 
 #define INP_REG 0x00 // output regs are 0x02, 0x03
 #define OUT_REG 0x02 // output regs are 0x02, 0x03
@@ -11,6 +12,7 @@
 
 static i2c_inst_t* i2c = NULL;
 
+uint8_t get_expander_num(uint8_t gpio);
 uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg);
 void xl_write_u16(uint8_t exp_addr, uint8_t reg, uint16_t val);
 void xl9535_gpio_update(uint8_t exp_num);
@@ -123,7 +125,7 @@ bool xl9535_init(void) {
         xl9535_gpio_update(exp_num);
     }
     #ifdef SNOWDIVE_BTM_PALMTOP
-    // first, let's ensure access to the two extra GPIO expanders, by switching IOMUX_SEL
+    // now, let's ensure access to the two extra GPIO expanders, by switching IOMUX_SEL
     xl9535_gpio_put(PIN_IO_MUX_SEL, 0);
     xl9535_gpio_set_dir(PIN_IO_MUX_SEL, GPIO_OUT);
     if (xl9535_detect_aux_expanders()) {
@@ -173,14 +175,14 @@ uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
 
     ret = ret1 | ret2;
     if (ret < 1) {
-        //printf("FAIL 0x%X 0x%X, %d %d\r\n", exp_addr, reg, ret1, ret2);
+        printf("FAIL 0x%X 0x%X, %d %d\r\n", exp_addr, reg, ret1, ret2);
         return 0;
     }
 
     uint16_t value = 0;
     value |= ( (uint16_t)val[1] ) << 8;
     value |= val[0];
-    printf("SUCC 0x%X 0x%X, (0x%X 0x%X 0x%X) %d %d\r\n", exp_addr, reg, val[0], val[1], value, ret1, ret2);
+    //printf("SUCC 0x%X 0x%X, (0x%X 0x%X 0x%X) %d %d\r\n", exp_addr, reg, val[0], val[1], value, ret1, ret2);
     return value;
 }
 
@@ -219,9 +221,55 @@ void xl9535_gpio_irq(uint8_t gpio, uint32_t events) {
     #endif
 }
 
+void xl9535_poll_inputs(void) {
+    #ifdef BLEPIS_V2
+    //xl9535_gpio_update(0);
+    xl9535_gpio_update(1);
+    #endif
+    #ifdef SNOWDIVE_BTM_PALMTOP_V0
+    // INTs are joined for top and bottom due to lack of pin-itis
+    xl9535_gpio_update(0);
+    xl9535_gpio_update(1);
+    // polling only needed for bottom expanders on snowdive rn
+    /*
+    xl9535_gpio_update(2);
+    xl9535_gpio_update(3);
+    */
+    #endif
+}
+
+void process_port_update(uint8_t exp_num, uint16_t old_in, uint16_t new_in) {
+    uint16_t toggled_pins = old_in^new_in;
+    printf("NEW %d: 0x%X 0x%X 0x%X\r\n", exp_num, old_in, new_in, toggled_pins);
+    for (int i=0;i<16;i++) { // going through all sixteen bits
+        if (1 & (toggled_pins >> i)) { // this changed
+            int gpio_num = RP2040_MAX_GPIO + 1 + exp_num*16 + i;
+            bool new_state = (bool)( (new_in & (1 << i)) >> i );
+            printf("GPIO %d changed to %d\r\n", gpio_num, new_state);
+            process_gpio_update(gpio_num, new_state);
+        }
+        // a lot of fun code goes here
+        //uint8_t exp_num = get_expander_num(gpio);
+        // base gpio number for the expander
+        //return gpio - start_gpio;
+    }
+}
+
 void xl9535_gpio_update(uint8_t exp_num) {
     uint8_t xl_addr = XL9535_ADDRS[exp_num];
+    uint16_t old_inputs = INPUT[exp_num];
     INPUT[exp_num] = xl_read_u16(xl_addr, INP_REG);
+    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP_V0)
+    // masking the dang rtc_int pin
+    if (exp_num == get_expander_num(PIN_RTC_INT)) {
+        uint16_t mask = ~(1 << get_bit_pos(PIN_RTC_INT));
+        old_inputs &= mask;
+        INPUT[exp_num] &= mask;
+    }
+    #endif
+    if (old_inputs != INPUT[exp_num]) {
+        process_port_update(exp_num, old_inputs, INPUT[exp_num]);
+    }
 }
 
 /* Blepis v2 has two XL9535 GPIO expanders,
@@ -257,23 +305,9 @@ uint8_t get_expander_num(uint8_t gpio) {
 
 uint8_t get_bit_pos(uint8_t gpio) {
     uint8_t exp_num = get_expander_num(gpio);
-
-    uint8_t start_gpio, end_gpio;
-    start_gpio = RP2040_MAX_GPIO + 1 + exp_num*16;
-    end_gpio = start_gpio + 15;
-
-    //uint8_t pos = 0;
-    uint8_t pos = gpio - start_gpio; // base number for the expander
-
-    //printf("pos %d %d %d\r\n", gpio, exp_num, pos);
-
-    /*if (gpio > 7 ) { // >53, so, fits 59 aka 12
-        pos = pos - 8; // 12-8 = bit position  4
-    } else { // <= 53, so, fits 51 aka 6
-        pos = pos + 8; // 6+8  = bit position 12
-    }*/
-    // sanity check based on an edgecase: 38, 38-30=8, >37, so, -8, bit position 0
-    return pos;
+    // base gpio number for the expander
+    uint8_t start_gpio = RP2040_MAX_GPIO + 1 + exp_num*16;
+    return gpio - start_gpio;
 }
 
 void xl9535_gpio_put(uint8_t gpio, uint8_t value) {
@@ -319,7 +353,7 @@ bool gpio_bit_get(uint16_t value, uint8_t gpio) {
     return ( value >> pos & 1 ) & 0x1;
 }
 
-void xl9535_debug() {
+void xl9535_debug(void) {
     for(int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
     //for(int exp_num=0; exp_num<2; exp_num++) {
         printf("test6 IRQ %d\r\n", xl_irq_fired);

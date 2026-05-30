@@ -66,11 +66,11 @@ POWER and USB-C
 
 // two USB-C ports on the sides
 #define WUSB_LEFT_ADDR 0x60
-#define WUSB_LEFT_INT 30 //
-#define WUSB_LEFT_PWR 31 //
+#define PIN_WUSB_LEFT_INT 30 //
+#define PIN_WUSB_LEFT_PWR 31 //
 #define WUSB_RIGHT_ADDR 0x68
-#define WUSB_RIGHT_INT 60 //
-#define WUSB_RIGHT_PWR 61 //
+#define PIN_WUSB_RIGHT_INT 60 //
+#define PIN_WUSB_RIGHT_PWR 61 //
 
 // 1 TMP102 sensor onboard, U34 0x4b. will be used for monitoring power circuitry local temperature
 #define TEMP_BASE_ADDR 0x4b
@@ -183,12 +183,12 @@ KEYBOARD and BUTTONS
     0, \
     7
 
-#define NUM_OF_BTNS			0 // buttons not yet added in because there's no support for IO expander read yet. for now.
+#define NUM_OF_BTNS			9
 #define POWER_BTN           3
 #define PINS_BTNS \
-	POWER_BTN, // COL7
+	PIN_BUTTON_1, PIN_BUTTON_2, PIN_BUTTON_3, PIN_TBUTTON_1, PIN_TBUTTON_2, PIN_TBUTTON_3, PIN_TBUTTON_4, PIN_TBUTTON_5, PIN_TBUTTON_6
 #define BTN_KEYS \
-	{ KEY_POWER },
+	KEY_F7,       KEY_F8,       KEY_F9,       KEY_F1,        KEY_F2,        KEY_F3,        KEY_F4,        KEY_F5,        KEY_F6
 
 #define PIN_GPIOEXP0		PIN_PI_SHUTDOWN
 

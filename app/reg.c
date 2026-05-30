@@ -12,7 +12,7 @@
 #include "rtc.h"
 #include "update.h"
 
-#ifdef BLEPIS
+#if defined(BLEPIS) || defined(SNOWDIVE_BTM_PALMTOP)
 #include "vibromotor.h"
 #include "peripherals.h"
 #endif
@@ -26,7 +26,7 @@
 #include <stdio.h>
 
 // We don't enable this by default cause it spams quite a lot
-//#define DEBUG_REGS
+#define DEBUG_REGS
 
 static struct
 {
@@ -64,7 +64,24 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 
 	switch (reg) {
 
+    case REG_ID_HW:
+    {
+        #if defined(BEEPY)
+    		out_buffer[0] = 0x01; // OG Beepy (the best to ever do it)
+        #elif defined(BLEPIS_V1)
+    		out_buffer[0] = 0x02; // Blepis v1 (barely used if at all)
+        #elif defined(BLEPIS_V2)
+    		out_buffer[0] = 0x03; // Blepis v2 (the mainstay)
+        #elif defined(SNOWDIVE_BTM_PALMTOP_V0)
+    		out_buffer[0] = 0x04; // Snowdive palmtop base, up-and-coming
+        #else
+    		out_buffer[0] = 0xff; // yet unknown challenger :pensive:
+        #endif
+		*out_len = sizeof(uint8_t);
+        break;
+    }
 	// common R/W registers
+
 	case REG_ID_CFG:
 	case REG_ID_INT:
 	case REG_ID_DEB:
@@ -137,7 +154,7 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 	}
 
     // charger interface (charging power, charging enable)
-    #ifdef BLEPIS
+    #if defined(BLEPIS) || defined (SNOWDIVE)
     case REG_ID_PWR: // power settings/state
     {
 		if (is_write) {
@@ -172,12 +189,19 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
             // only react if the bits have changed
             bool muxusb_set = reg_is_bit_set(REG_ID_MUX, MUX_USB);
             bool muxfusb_set = reg_is_bit_set(REG_ID_MUX, MUX_FUSB);
+            #if defined(BLEPIS_V2) || defined (SNOWDIVE_BTM_PALMTOP)
+            bool muxuart_set = reg_is_bit_set(REG_ID_MUX, MUX_UART);
+            #endif
 			reg_set_value(reg, in_data);
             if (reg_is_bit_set(REG_ID_MUX, MUX_USB) != muxusb_set) {
                 if (reg_is_bit_set(REG_ID_MUX, MUX_USB)) {
                     usbmux_host();
                 } else {
+                    #ifdef SNOWDIVE_BTM_PALMTOP
+                    usbmux_hub();
+                    #else
                     usbmux_rp2040();
+                    #endif
                 }
             }
             if (reg_is_bit_set(REG_ID_MUX, MUX_FUSB) != muxfusb_set) {
@@ -187,8 +211,7 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
                     fusbmux_rp2040();
                 }
             }
-            #ifdef BLEPIS_V2
-            bool muxuart_set = reg_is_bit_set(REG_ID_MUX, MUX_UART);
+            #if defined(BLEPIS_V2) || defined (SNOWDIVE_BTM_PALMTOP)
             if (reg_is_bit_set(REG_ID_MUX, MUX_UART) != muxuart_set) {
                 if (reg_is_bit_set(REG_ID_MUX, MUX_UART)) {
                     uartmux_intl();
@@ -443,6 +466,17 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 		out_buffer[0] = reg_get_value(reg);
 		*out_len = sizeof(uint8_t);
 		break;
+    default:
+		if (is_write) {
+            // ignore
+        	printf("ignoring write to unknown reg 0x%02X\r\n", reg);
+		} else {
+            uint8_t stub = 0x00;
+        	printf("ignoring read from unknown reg 0x%02X, returning 0x%02X as stub\r\n", reg, stub);
+			out_buffer[0] = stub;
+	    	*out_len = sizeof(uint8_t);
+    	}
+		break;
 	}
 }
 
@@ -496,7 +530,11 @@ void reg_init(void)
 	reg_set_value(REG_ID_CFG, CFG_OVERFLOW_INT | CFG_KEY_INT | CFG_USE_MODS);
 	reg_set_value(REG_ID_BKL, 0x16);
 	reg_set_value(REG_ID_DEB, 10);
+    #ifdef SNOWDIVE_BTM_PALMTOP
+	reg_set_value(REG_ID_FRQ, 20);	// ms
+    #else
 	reg_set_value(REG_ID_FRQ, 10);	// ms
+    #endif
 	reg_set_value(REG_ID_BK2, 255);
 	reg_set_value(REG_ID_PUD, 0xFF);
 	reg_set_value(REG_ID_HLD, 100);	// 10ms units
@@ -510,7 +548,7 @@ void reg_init(void)
 
 	reg_set_value(REG_ID_TOUCHPAD_MIN_SQUAL, 16);
 
-	reg_set_value(REG_ID_MUX, 0x02); // fusb mux high by default, usb mux low
+	reg_set_value(REG_ID_MUX, 0x00); // all muxes low by default
 
 	touchpad_add_touch_callback(&touch_callback);
 }

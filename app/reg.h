@@ -5,6 +5,7 @@
 
 enum reg_id
 {
+    REG_ID_HW  = 0x00, // hw version
 	REG_ID_VER = 0x01, // fw version
 	REG_ID_CFG = 0x02, // config
 	REG_ID_INT = 0x03, // interrupt status
@@ -115,7 +116,7 @@ enum reg_id
 #define PWR_5VGOOD          (1 << 2)
 
 #define DSP_RST              (1 << 0)
-#define DSP_EXTCI            (1 << 1)
+#define DSP_EXTCI            (1 << 1) // currently not used
 
 #define VER_VAL				((VERSION_MAJOR << 4) | (VERSION_MINOR << 0))
 
