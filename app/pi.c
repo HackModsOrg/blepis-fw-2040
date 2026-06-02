@@ -26,8 +26,9 @@
 #include <pico/stdlib.h>
 #include <pico/sleep.h>
 #include <pico/runtime_init.h>
+
 #ifndef NDEBUG
-    #include <stdio.h>
+#include <stdio.h>
 #endif
 
 #define LED_FLASH_CYCLE_MS 3000
@@ -508,6 +509,7 @@ uint8_t dormant_get_reentry_flag(void)
 static void sleep_callback(void)
 {}
 
+#if 0
 void dormant_seconds(int seconds)
 {
 	struct sleep_state ss;
@@ -543,3 +545,4 @@ void dormant_seconds(int seconds)
 	// Restore clocks, LED, backlight
 	sleep_resume(&ss);
 }
+#endif
