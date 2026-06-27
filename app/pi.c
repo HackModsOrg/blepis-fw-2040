@@ -9,8 +9,8 @@
 #include <hardware/pwm.h>
 
 #ifdef BEEPY
-#include "gpioexp.h"
 #endif
+#include "gpioexp.h"
 
 #if defined(BLEPIS) || defined(SNOWDIVE)
 #include "peripherals.h"
@@ -51,20 +51,21 @@ enum pi_state
 
 static enum pi_state g_pi_state;
 
-void pi_power_init(void)
+void pi_power_init(bool already_powered)
 {
 	adc_init();
 	adc_gpio_init(PIN_BAT_ADC);
 	adc_select_input(0);
 
-	uni_gpio_init(PIN_PI_PWR);
-	uni_gpio_set_dir(PIN_PI_PWR, GPIO_OUT);
-	uni_gpio_put(PIN_PI_PWR, 0);
     #if defined(BLEPIS) || defined(SNOWDIVE)
-	    uni_gpio_set_dir(PIN_DISP_RST, GPIO_OUT);
-    	uni_gpio_put(PIN_DISP_RST, 1);
+	uni_gpio_put(PIN_DISP_RST, 1);
+    uni_gpio_set_dir(PIN_DISP_RST, GPIO_OUT);
     #endif
-	g_pi_state = PI_STATE_OFF;
+    if (!already_powered) {
+    	g_pi_state = PI_STATE_OFF;
+    } else {
+        g_pi_state = PI_STATE_ON;
+    }
 }
 
 void pi_power_on(enum power_on_reason reason)
@@ -72,6 +73,7 @@ void pi_power_on(enum power_on_reason reason)
 	struct led_state state;
 
 	if (g_pi_state == PI_STATE_ON) {
+        printf("already powered!\r\n");
 		return;
 	}
 
@@ -512,14 +514,19 @@ static void sleep_callback(void)
 void dormant_seconds(int seconds)
 {
 	struct sleep_state ss;
-	datetime_t t;
-
+    struct timespec ts;
+	//datetime_t t;
+    bool aon_success = aon_timer_get_time(&ts);
+    uint64_t time_ms = timespec_to_ms(&ts);
+    time_ms += seconds * 1000;
+    ms_to_timespec(time_ms, &ts);
 	// Save clocks, LED, backlight
 	sleep_prepare(&ss);
 
+    /*
 	// Get datetime offset
-	rtc_get_datetime(&t);
-	t.sec += seconds;
+	//rtc_get_datetime(&t);
+	//t.sec += seconds;
 	while (t.sec >= 60) {
 		t.sec -= 60;
 		t.min += 1;
@@ -534,13 +541,30 @@ void dormant_seconds(int seconds)
 		t.day += 1;
 		t.dotw = (t.dotw + 1) & 7;
 	}
+    */
 
 	sleep_run_from_xosc();
-	sleep_goto_sleep_until(&t, sleep_callback);
+	sleep_goto_sleep_until(&ts, sleep_callback);
 
 	// Advance RTC
-	rtc_set_datetime(&t);
+	//rtc_set_datetime(&t);
 
 	// Restore clocks, LED, backlight
 	sleep_resume(&ss);
+}
+
+bool check_pi_powered(void) {
+    // only meaningful on systems that use a separate GPIO expander
+	uni_gpio_init(PIN_PI_PWR);
+    bool pi_powered = uni_gpio_is_dir_out(PIN_PI_PWR) && uni_gpio_get_out_level(PIN_PI_PWR);
+    printf("Pi GPIO state a %d %d %d \r\n", pi_powered, uni_gpio_is_dir_out(PIN_PI_PWR), uni_gpio_get_out_level(PIN_PI_PWR));
+    // the detection mechanism is currently not working all that great =(
+    //if (pi_powered) { // do nothing
+
+    //} else {
+    	uni_gpio_set_dir(PIN_PI_PWR, GPIO_OUT);
+	    uni_gpio_put(PIN_PI_PWR, 0);
+    //}
+    return false;
+    //return pi_powered;
 }

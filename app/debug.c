@@ -94,6 +94,6 @@ void debug_init(void)
 	touchpad_add_touch_callback(&touch_callback);
 
     #ifdef BEEPY
-	gpioexp_add_int_callback(&gpioexp_callback);
     #endif
+	gpioexp_add_int_callback(&gpioexp_callback);
 }

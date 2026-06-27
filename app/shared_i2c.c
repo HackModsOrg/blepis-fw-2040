@@ -5,6 +5,8 @@
 
 static i2c_inst_t* i2c_instances[2] = { i2c0, i2c1 };
 
+volatile bool shared_i2c_in_use = false;
+volatile bool puppet_i2c_in_use = false; // unused for now
 
 void setup_shared_i2c(void) {
 	i2c_inst_t* i2c = i2c_instances[(PIN_SCL / 2) % 2];

@@ -57,8 +57,10 @@ bool xl9535_detect_from_to(int from, int to) {
     for(int exp_num=from; exp_num<to; exp_num++) {
         uint8_t exp_addr = XL9535_ADDRS[exp_num];
 
+        shared_i2c_in_use = true;
         ret1 = i2c_write_blocking(i2c, exp_addr, &reg, sizeof(reg), true);
         ret2 = i2c_read_blocking(i2c, exp_addr, val, sizeof(val), false);
+        shared_i2c_in_use = false;
 
         ret = ret1 | ret2;
         //printf("PROBE FAIL 0x%X 0x%X, %d %d\r\n", exp_addr, reg, ret1, ret2);
@@ -77,7 +79,6 @@ bool xl9535_detect_from_to(int from, int to) {
 }
 
 bool xl9535_detect() {
-    //uint8_t expanders_to_detect = to; // currently only two expanders are guaranteed to be present on both boards
     //uint8_t expanders_to_detect = EXPANDER_MAX_AMOUNT;
     return xl9535_detect_from_to(0, 2); // currently only two expanders are guaranteed to be present on either board
 }
@@ -94,7 +95,13 @@ void xl9535_enable_irq(void) {
     gpio_set_irq_enabled(PIN_XL9535_BOTTOM_INT, GPIO_IRQ_LEVEL_LOW, true);
 }
 
-bool xl9535_init(void) {
+void xl9535_disable_irq(void) {
+    // only set up interrupts well after all is well and done
+    //gpio_set_irq_enabled(PIN_XL9535_TOP_INT, GPIO_IRQ_LEVEL_LOW, false);
+    gpio_set_irq_enabled(PIN_XL9535_BOTTOM_INT, GPIO_IRQ_LEVEL_LOW, false);
+}
+
+bool xl9535_init_main(void) {
     int ret;
     // "preliminary" init of variables
     for (int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
@@ -128,6 +135,30 @@ bool xl9535_init(void) {
     // now, let's ensure access to the two extra GPIO expanders, by switching IOMUX_SEL
     xl9535_gpio_put(PIN_IO_MUX_SEL, 0);
     xl9535_gpio_set_dir(PIN_IO_MUX_SEL, GPIO_OUT);
+    #endif
+
+    #ifndef NDEBUG
+        // some visual debug - disabling the charger IC and its associated LEDs
+        //get_bit_pos(30);
+        xl9535_gpio_set_dir(PIN_CHG_DIS, true);
+        xl9535_gpio_put(PIN_CHG_DIS, true);
+        sleep_ms(100);
+        xl9535_gpio_put(PIN_CHG_DIS, false); // enabling charging
+        //sleep_ms(2000);
+    #endif
+    /*
+    This would be best placed into a separate function and fired off only after
+    finding out that the PI_PWR signal has not been initialized yet
+    */
+    #ifdef SNOWDIVE_BTM_PALMTOP_V0
+    // as-soon-as-possible values (especially relevant on snowdive v0
+    //xl9535_gpio_set_dir(PIN_PI_PWR, GPIO_OUT);
+    //xl9535_gpio_put(PIN_PI_PWR, 0);
+    #endif
+    return true;
+}
+
+bool xl9535_init_aux(void) {
     if (xl9535_detect_aux_expanders()) {
         // only actually read default values into registers if the aux expanders are present!
         for(int exp_num=2; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
@@ -136,33 +167,20 @@ bool xl9535_init(void) {
             GPIO[exp_num] = xl_read_u16(xl_addr, OUT_REG);
             xl9535_gpio_update(exp_num);
         }
+        #ifdef SNOWDIVE_BTM_PALMTOP_V0
+        // as-soon-as-possible values (especially relevant on snowdive v0
+        xl9535_gpio_set_dir(PIN_ESP_PWR, GPIO_OUT);
+        xl9535_gpio_set_dir(PIN_ESP_EN, GPIO_OUT);
+        xl9535_gpio_put(PIN_ESP_PWR, 1);
+        xl9535_gpio_put(PIN_ESP_EN, 0);
+        sleep_ms(200);
+        xl9535_gpio_put(PIN_ESP_EN, 1);
+        #endif
+        return true;
     } else {
         printf("aux expander detect fail\r\n");
+        return false;
     }
-    #endif
-    #ifdef SNOWDIVE_BTM_PALMTOP_V0
-    // as-soon-as-possible values (especially relevant on snowdive v0
-    xl9535_gpio_set_dir(PIN_PI_PWR, GPIO_OUT);
-    xl9535_gpio_put(PIN_PI_PWR, 0);
-    #endif
-    // a little debug
-    for(int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
-        printf("test4 OUT %d 0x%X\r\n",exp_num, GPIO[exp_num]);
-        printf("test4 INP %d 0x%X\r\n",exp_num, INPUT[exp_num]);
-        printf("test4 IOD %d 0x%X\r\n\r\n",exp_num, IODIR[exp_num]);
-    }
-    //printf("test5\r\n");
-    //sleep_ms(300);
-    #ifndef NDEBUG
-        // some visual debug - disabling the charger IC and its associated LEDs
-        //get_bit_pos(30);
-        xl9535_gpio_set_dir(PIN_CHG_DIS, true);
-        xl9535_gpio_put(PIN_CHG_DIS, true);
-        sleep_ms(500);
-        xl9535_gpio_put(PIN_CHG_DIS, false); // enabling charging
-        sleep_ms(2000);
-    #endif
-    return true;
 }
 
 uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
@@ -170,8 +188,10 @@ uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
 	uint8_t val[2];
     int ret, ret1, ret2;
 
+    shared_i2c_in_use = true;
 	ret1 = i2c_write_blocking(i2c, exp_addr, &reg, sizeof(reg), true);
 	ret2 = i2c_read_blocking(i2c, exp_addr, val, sizeof(val), false);
+    shared_i2c_in_use = false;
 
     ret = ret1 | ret2;
     if (ret < 1) {
@@ -189,7 +209,9 @@ uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
 void xl_write_u16(uint8_t exp_addr, uint8_t reg, uint16_t val)
 {
 	uint8_t buffer[3] = { reg, (uint8_t)(val), (uint8_t)(val >> 8)};
+    shared_i2c_in_use = true;
 	i2c_write_blocking(i2c, exp_addr, buffer, sizeof(buffer), false);
+    shared_i2c_in_use = false;
 }
 
 volatile bool xl_irq_fired = false;
@@ -202,6 +224,12 @@ void xl9535_gpio_irq(uint8_t gpio, uint32_t events) {
     if ( !(events & GPIO_IRQ_LEVEL_LOW) )
 		return;
     xl_irq_fired = true;
+    if (shared_i2c_in_use) {
+        // oh no
+        xl9535_disable_irq(); //
+        // TODO SET FAILURE FLAG!!!
+        return;
+    }
     #ifdef BLEPIS_V2
     if (gpio == PIN_XL9535_TOP_INT)
         xl9535_gpio_update(0);
@@ -318,11 +346,25 @@ void xl9535_gpio_put(uint8_t gpio, uint8_t value) {
     GPIO[exp_num] = gpio_val;
 }
 
-// TODO
+// TODO (wait what TODO, bruh i forgor)
 bool xl9535_gpio_get(uint8_t gpio) {
     // this function reads directly from cached values, which only get updated when an interrupt happens
     uint8_t exp_num = get_expander_num(gpio);
     return gpio_bit_get(INPUT[exp_num], gpio);
+}
+
+bool xl9535_gpio_get_out_level(uint8_t gpio) {
+    // useful for figuring out if a GPIO has been set to OUT already.
+    // mostly for checking whether the Pi is already powered
+    uint8_t exp_num = get_expander_num(gpio);
+    return gpio_bit_get(GPIO[exp_num], gpio);
+}
+
+bool xl9535_gpio_is_dir_out(uint8_t gpio) {
+    // useful for figuring out if a GPIO has been set to OUT already.
+    // mostly for checking whether the Pi is already powered
+    uint8_t exp_num = get_expander_num(gpio);
+    return !gpio_bit_get(IODIR[exp_num], gpio);
 }
 
 void xl9535_gpio_set_dir(uint8_t gpio, uint8_t out) {
@@ -333,10 +375,10 @@ void xl9535_gpio_set_dir(uint8_t gpio, uint8_t out) {
     IODIR[exp_num] = iodir_val;
 }
 
-// TODO
+// TODO (once again, TODO WHAT???)
 bool xl9535_gpio_get_dir(uint8_t gpio) {
     uint8_t exp_num = get_expander_num(gpio);
-    return gpio_bit_get(IODIR[exp_num], gpio);
+    return !gpio_bit_get(IODIR[exp_num], gpio);
 }
 
 uint16_t gpio_bit_set(uint8_t gpio, uint8_t set, uint16_t value) {
@@ -356,9 +398,9 @@ bool gpio_bit_get(uint16_t value, uint8_t gpio) {
 void xl9535_debug(void) {
     for(int exp_num=0; exp_num<EXPANDER_MAX_AMOUNT; exp_num++) {
     //for(int exp_num=0; exp_num<2; exp_num++) {
-        printf("test6 IRQ %d\r\n", xl_irq_fired);
-        printf("test6 OUT %d 0x%X\r\n", exp_num, GPIO[exp_num]);
-        printf("test6 INP %d 0x%X\r\n", exp_num, INPUT[exp_num]);
-        printf("test6 IOD %d 0x%X\r\n\r\n", exp_num, IODIR[exp_num]);
+        //printf("xl9535 %d IRQ %d\r\n", exp_num, xl_irq_fired);
+        printf("xl9535 %d OUT 0x%X\r\n", exp_num, GPIO[exp_num]);
+        printf("xl9535 %d INP 0x%X\r\n", exp_num, INPUT[exp_num]);
+        printf("xl9535 %d IOD 0x%X\r\n\r\n", exp_num, IODIR[exp_num]);
     }
 }

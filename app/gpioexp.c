@@ -21,21 +21,32 @@ static void set_dir(uint8_t gpio, uint8_t gpio_idx, uint8_t dir)
 	if (dir == DIR_INPUT) {
 		if (reg_is_bit_set(REG_ID_PUE, (1 << gpio_idx))) {
 			if (reg_is_bit_set(REG_ID_PUD, (1 << gpio_idx)) == PUD_UP) {
+                // why the FUCK is it doing this? this just returns a bool
+                #ifdef BEEPY
 				gpio_is_pulled_up(gpio);
+                #endif
 			} else {
+                #ifdef BEEPY
 				gpio_is_pulled_down(gpio);
+                #endif
 			}
 		} else {
+            #ifdef BEEPY
 			gpio_disable_pulls(gpio);
+            #endif
 		}
 
 		uni_gpio_set_dir(gpio, GPIO_IN);
 
+        #ifdef BEEPY
 		gpio_set_irq_enabled(gpio, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
+        #endif
 
 		reg_set_bit(REG_ID_DIR, (1 << gpio_idx));
 	} else {
+        #ifdef BEEPY
 		gpio_set_irq_enabled(gpio, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, false);
+        #endif
 
 		uni_gpio_set_dir(gpio, GPIO_OUT);
 

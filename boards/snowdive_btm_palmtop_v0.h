@@ -23,6 +23,8 @@
 
 // IO expanders
 
+#define HAS_XL9535
+
 #define XL9535_BTM_LEFT_ADDR 0x26 // U21, addr range from 30 to 45 (inclusive)
 #define XL9535_BTM_RIGHT_ADDR 0x27 // U28, addr range from 46 to 61 (inclusive)
 #define XL9535_TOP_LEFT_ADDR 0x24 // U27, addr range from 62 to 77 (inclusive)
@@ -190,6 +192,7 @@ KEYBOARD and BUTTONS
 #define BTN_KEYS \
 	KEY_F7,       KEY_F8,       KEY_F9,       KEY_F1,        KEY_F2,        KEY_F3,        KEY_F4,        KEY_F5,        KEY_F6
 
-#define PIN_GPIOEXP0		PIN_PI_SHUTDOWN
+#define PIN_GPIOEXP1 PIN_ESP_EN
+#define PIN_GPIOEXP2 PIN_ESP_PWR
 
 #define PICO_FLASH_SIZE_BYTES (16 * 1024 * 1024)

@@ -11,13 +11,15 @@
 #include "backlight.h"
 #include "debug.h"
 #ifdef BEEPY
-    #include "gpioexp.h"
 #endif
+    // this ifdef is temporary up until I figure out what makes gpioexp crash blepis and other firmwares that use expander-controlled GPIOs
+    #include "gpioexp.h"
 #include "interrupt.h"
 #include "keyboard.h"
 #include "puppet_i2c.h"
 #include "usb.h"
 #include "reg.h"
+#include "gpio.h"
 #include "rtc.h"
 #include "touchpad.h"
 #include "pi.h"
@@ -31,7 +33,7 @@
 #ifdef BLEPIS_V1
     #include "mcp23017.h"
 #endif
-#if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+#if defined(HAS_XL9535)
     #include "xl9535.h"
 #endif
 #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
@@ -53,8 +55,8 @@ static void gpio_irq(uint gpio, uint32_t events)
     #endif
 	touchpad_gpio_irq(gpio, events);
     #ifdef BEEPY
-    	gpioexp_gpio_irq(gpio, events);
     #endif
+    	gpioexp_gpio_irq(gpio, events);
 }
 
 // TODO: Microphone
@@ -77,7 +79,7 @@ int main(void)
 	    debug_init();
     #endif
 
-	//sleep_ms(2000);
+	sleep_ms(3000);
 
     dbg_light(urgb_u32(0xf*3, 0xf*3, 0));
 	setup_shared_i2c();
@@ -92,9 +94,11 @@ int main(void)
     #ifndef NDEBUG
     i2c_inst_t* i2c_ec = get_shared_i2c_instance();
     i2c_scan(i2c_ec);
-    //sleep_ms(2000);
+    sleep_ms(100);
     //i2c_scan(i2c_ec);
     #endif
+
+    // mother of all GPIO IRQs
 	// For now, the `gpio` param is ignored and all enabled GPIOs generate the irq
 	gpio_set_irq_enabled_with_callback(0xFF, 0, true, &gpio_irq);
 
@@ -107,13 +111,15 @@ int main(void)
     	mcp23017_init();
     #endif
 
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    bool pi_powered = false;
+
+    #if defined(HAS_XL9535)
         // XL9535 is only used on Blepis v2 and Snowdive BTM_PALMTOP
         #ifndef NDEBUG
 	        printf("xl9535 init\r\n");
         #endif
 
-    	bool xl_found = xl9535_init();
+    	bool xl_found = xl9535_init_main();
         // this mechanism is temporarily disabled because it doesn't work right now
         // maybe? the xl_detect code needs to be rewritten to use register reads?
         /*
@@ -129,6 +135,15 @@ int main(void)
             	sleep_ms(500);
             }
         } */
+        #ifdef SNOWDIVE_BTM_PALMTOP
+        xl9535_init_aux();
+        #endif
+
+        pi_powered = check_pi_powered(); // unused for now but will be important on snowdive v0
+
+        #ifndef NDEBUG
+        xl9535_debug();
+        #endif
 
     #endif
 
@@ -161,7 +176,7 @@ int main(void)
 
     setup_puppet_i2c_as_shared_i2c();
     #ifndef NDEBUG
-    sleep_ms(2000);
+    sleep_ms(100);
     i2c_inst_t* i2c_cpu = get_puppet_shared_i2c_instance();
     //i2c_scan(i2c_cpu);
     #endif
@@ -170,11 +185,11 @@ int main(void)
 
     // gpioexp only works on OG beepy so far
     #ifdef BEEPY
+    #endif
         #ifndef NDEBUG
 	        printf("gpioexp init\r\n");
         #endif
     	gpioexp_init();
-    #endif
 
     #ifndef NDEBUG
 	    printf("keeb init\r\n");
@@ -213,6 +228,7 @@ int main(void)
 
     bool exp_interrupts_disabled = false;
 
+    #if defined(HAS_XL9535)
     if (rtc_disabled) {
         #ifndef NDEBUG
 	        printf("xl9535 int init\r\n");
@@ -225,6 +241,7 @@ int main(void)
 	        printf("RTC on, not enabling int\r\n");
         #endif
     }
+    #endif
 
     #ifndef NDEBUG
 	    printf("ppt init\r\n");
@@ -236,13 +253,15 @@ int main(void)
 	    printf("pipwr init\r\n");
     #endif
 
-	pi_power_init();
+	pi_power_init(pi_powered);
 
 	pi_power_on(POWER_ON_FW_INIT);
 
     dbg_light(urgb_u32(0x6*3, 0xd*3, 0xf*3)); // cyan
     //dbg_light(urgb_u32(0x5*3, 0xf*3, 0x5*3)); // light green
 
+    //printf("Pi GPIO state c  %d \r\n", uni_gpio_get_dir(PIN_PI_PWR) == GPIO_IN);
+    //printf("Pi GPIO state 2 %d %d\r\n", uni_gpio_get_dir(PIN_PI_PWR), uni_gpio_get(PIN_PI_PWR));
 
     #ifndef NDEBUG
     	printf("rtc year %d\r\n", rtc_get(REG_ID_RTC_YEAR));
@@ -264,8 +283,10 @@ int main(void)
         if (i % 10000 == 0) {
             printf("loop iter %d if %d\r\n", i, irq_fired);
             //printf("loop iter %d\r\n", i);
+            #ifdef HAS_XL9535
             printf("irq_sta %d %d\r\n", gpio_get(PIN_XL9535_TOP_INT), gpio_get(PIN_XL9535_BOTTOM_INT) );
             xl9535_debug();
+            #endif
         }
         if ((i % 100 == 0) && exp_interrupts_disabled) {
             //xl9535_poll_inputs(); // only needed for bottom expanders, at least

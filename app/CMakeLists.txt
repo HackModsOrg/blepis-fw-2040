@@ -14,7 +14,7 @@ endif()
 
 if(PICO_BOARD STREQUAL "snowdive_btm_palmtop_v0")
     # same peripherals as on the Blepis v2 - FOR NOW
-    set(EXTRA_SOURCES ${EXTRA_SOURCES} vibromotor.c peripherals.c xl9535.c usbc.c)
+    set(EXTRA_SOURCES ${EXTRA_SOURCES} vibromotor.c peripherals.c xl9535.c usbc.c gpioexp.c)
     message(PICO_BOARD="${PICO_BOARD}")
 endif()
 

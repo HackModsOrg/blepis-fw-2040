@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum power_on_reason
 {
@@ -12,7 +13,7 @@ enum power_on_reason
 
 #define MINIMUM_SHUTDOWN_GRACE_MS 5000
 
-void pi_power_init(void);
+void pi_power_init(bool already_powered);
 void pi_power_on(enum power_on_reason reason);
 void pi_power_off(void);
 void pi_reboot(enum power_on_reason reason);
@@ -45,3 +46,5 @@ void led_set(struct led_state const* state);
 void dormant_until_power_key_down(void);
 void dormant_set_reentry_flag(uint8_t value);
 uint8_t dormant_get_reentry_flag(void);
+
+bool check_pi_powered(void);

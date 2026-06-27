@@ -18,8 +18,8 @@
 #endif
 
 #ifdef BEEPY
-#include "gpioexp.h"
 #endif
+#include "gpioexp.h"
 
 #include <pico/stdlib.h>
 #include <RP2040.h> // TODO: When there's more than one RP chip, change this to be more generic
@@ -133,6 +133,7 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 	case REG_ID_PUD: // gpio input pull direction
 	{
         #ifdef BEEPY
+        #endif
 		if (is_write) {
 			switch (reg) {
 			case REG_ID_DIR:
@@ -149,7 +150,6 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 			out_buffer[0] = reg_get_value(reg);
 			*out_len = sizeof(uint8_t);
 		}
-        #endif
 		break;
 	}
 
@@ -255,6 +255,7 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 	case REG_ID_GIO: // gpio value
 	{
         #ifdef BEEPY
+        #endif
 		if (is_write) {
 			gpioexp_set_value(in_data);
 		} else {
@@ -262,7 +263,6 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 			*out_len = sizeof(uint8_t);
 		}
 		break;
-        #endif
 	}
 
 	// RGB LED registers
@@ -531,7 +531,8 @@ void reg_init(void)
 	reg_set_value(REG_ID_BKL, 0x16);
 	reg_set_value(REG_ID_DEB, 10);
     #ifdef SNOWDIVE_BTM_PALMTOP
-	reg_set_value(REG_ID_FRQ, 20);	// ms
+    // snowdive keeb more bouncy? might just be the ESD diodes, of course.
+	reg_set_value(REG_ID_FRQ, 35);	// ms
     #else
 	reg_set_value(REG_ID_FRQ, 10);	// ms
     #endif

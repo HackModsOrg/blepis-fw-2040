@@ -26,7 +26,7 @@ void uni_gpio_init(uint8_t gpio) {
         // do nothing
         return;
     }
-    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(HAS_XL9535)
     if (gpio > RP2040_MAX_GPIO) {
         // do nothing
         return;
@@ -45,7 +45,7 @@ void uni_gpio_set_dir(uint8_t gpio, bool out) {
         mcp23017_gpio_set_dir(gpio, out);
         return;
     }
-    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(HAS_XL9535)
     if (gpio > RP2040_MAX_GPIO) {
         xl9535_gpio_set_dir(gpio, out);
         return;
@@ -61,7 +61,7 @@ void uni_gpio_pull_up(uint8_t gpio) {
     if (gpio > RP2040_MAX_GPIO) {
         //mcp23017_gpio_pull_up(out); // not implemented yet
     }
-    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(HAS_XL9535)
     if (gpio > RP2040_MAX_GPIO) {
         //xl9535_gpio_pull_up(gpio); // no such thing
     }
@@ -75,7 +75,7 @@ bool uni_gpio_get_dir(uint8_t gpio) {
     if (gpio > RP2040_MAX_GPIO) {
         //return mcp23017_gpio_get_dir(out);
     }
-    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(HAS_XL9535)
     if (gpio > RP2040_MAX_GPIO) {
         return xl9535_gpio_get_dir(gpio);
     }
@@ -93,13 +93,30 @@ void uni_gpio_put(uint8_t gpio, bool value) {
         mcp23017_gpio_put(gpio, value);
         return;
     }
-    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(HAS_XL9535)
     if (gpio > RP2040_MAX_GPIO) {
         xl9535_gpio_put(gpio, value);
         return;
     }
     #endif
     return;
+}
+
+bool uni_gpio_is_dir_out(uint8_t gpio) {
+    if (gpio <= RP2040_MAX_GPIO) {
+        return gpio_is_dir_out(gpio);
+    }
+    #ifdef BLEPIS_V1
+    if (gpio > RP2040_MAX_GPIO) {
+        //return mcp23017_gpio_is_dir_out(gpio); // unimplemented right now
+        return 0;
+    }
+    #elif defined(HAS_XL9535)
+    if (gpio > RP2040_MAX_GPIO) {
+        return xl9535_gpio_is_dir_out(gpio);
+    }
+    #endif
+    return 0;
 }
 
 bool uni_gpio_get(uint8_t gpio) {
@@ -111,9 +128,26 @@ bool uni_gpio_get(uint8_t gpio) {
         //return mcp23017_gpio_get(gpio); // unimplemented right now
         return 0;
     }
-    #elif defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #elif defined(HAS_XL9535)
     if (gpio > RP2040_MAX_GPIO) {
         return xl9535_gpio_get(gpio);
+    }
+    #endif
+    return 0;
+}
+
+bool uni_gpio_get_out_level(uint8_t gpio) {
+    if (gpio <= RP2040_MAX_GPIO) {
+        return gpio_get_out_level(gpio);
+    }
+    #ifdef BLEPIS_V1
+    if (gpio > RP2040_MAX_GPIO) {
+        //return mcp23017_gpio_get_out_level(gpio); // unimplemented right now
+        return 0;
+    }
+    #elif defined(HAS_XL9535)
+    if (gpio > RP2040_MAX_GPIO) {
+        return xl9535_gpio_get_out_level(gpio);
     }
     #endif
     return 0;
