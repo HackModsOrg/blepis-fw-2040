@@ -61,6 +61,7 @@ uint8_t rtc_get(enum reg_id reg)
 	return 0;
 }
 
+#ifdef HAS_I2C_RTC_INTBUG
 bool disable_i2c_rtc_clk() {
     printf("1\r\n");
     i2c_inst_t* puppet_host_i2c = get_puppet_shared_i2c_instance();
@@ -69,8 +70,8 @@ bool disable_i2c_rtc_clk() {
     bool success = false;
     uint8_t buffer[2] = { 0x27, 0x8f };
     int ret;
-        uni_gpio_put(PIN_I2C_PU_PWR, 1);
-        uni_gpio_set_dir(PIN_I2C_PU_PWR, GPIO_OUT);
+    uni_gpio_put(PIN_I2C_PU_PWR, 1);
+    uni_gpio_set_dir(PIN_I2C_PU_PWR, GPIO_OUT);
     sleep_ms(200);
     for (int i=0;i<3;i++) {
         i2c_scan(puppet_host_i2c);
@@ -80,7 +81,7 @@ bool disable_i2c_rtc_clk() {
         printf("4\r\n");
         printf("rtc shutup %d \r\n", ret);
         if (ret > 0) {
-            uni_gpio_put(PIN_IO_MUX_SEL, 0); // reconnect top I2C
+            //uni_gpio_put(PIN_IO_MUX_SEL, 0); // reconnect top I2C
             return true;
         }
         sleep_ms(100*(i+1));
@@ -92,3 +93,4 @@ bool disable_i2c_rtc_clk() {
     }
     return true;
 }
+#endif

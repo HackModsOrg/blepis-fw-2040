@@ -21,6 +21,7 @@
 #define BLEPIS
 #define BLEPIS_V2
 
+#define HAS_XL9535
 #define XL9535_TOP_ADDR 0x24 // U27, addr range from 30 to 45 (inclusive)
 #define XL9535_BOTTOM_ADDR 0x26 // U25, addr range from 46 to 61 (inclusive)
 #define FUSB302_ADDR 0x22
@@ -59,6 +60,9 @@
 
 #define PIN_XL9535_TOP_INT  16 // EX-T_INT in schematic
 #define PIN_XL9535_BOTTOM_INT  19 // EX-B_INT in schematic
+
+#define HAS_I2C_RTC
+#define HAS_I2C_RTC_INTBUG
 
 /** Blepis v2 specific pins and config **/
 #define PIN_UART_MUX_SEL 38

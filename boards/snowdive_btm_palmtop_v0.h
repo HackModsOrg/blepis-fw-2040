@@ -33,6 +33,9 @@
 #define PIN_XL9535_BOTTOM_INT  17 // two expander INTs joined together, bottom board
 #define PIN_XL9535_TOP_INT  16 // two expander INTs joined together, bottom board
 
+#define HAS_I2C_RTC
+#define HAS_I2C_RTC_INTBUG
+
 // very important pin, switches the two top board IO expanders to EC control instead of CPU control
 #define PIN_IO_MUX_SEL 38 //
 

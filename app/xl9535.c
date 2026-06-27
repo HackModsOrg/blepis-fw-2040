@@ -158,6 +158,7 @@ bool xl9535_init_main(void) {
     return true;
 }
 
+#ifdef SNOWDIVE_BTM_PALMTOP
 bool xl9535_init_aux(void) {
     if (xl9535_detect_aux_expanders()) {
         // only actually read default values into registers if the aux expanders are present!
@@ -182,6 +183,7 @@ bool xl9535_init_aux(void) {
         return false;
     }
 }
+#endif
 
 uint16_t xl_read_u16(uint8_t exp_addr, uint8_t reg)
 {

@@ -10,10 +10,7 @@
 
 #include "backlight.h"
 #include "debug.h"
-#ifdef BEEPY
-#endif
-    // this ifdef is temporary up until I figure out what makes gpioexp crash blepis and other firmwares that use expander-controlled GPIOs
-    #include "gpioexp.h"
+#include "gpioexp.h"
 #include "interrupt.h"
 #include "keyboard.h"
 #include "puppet_i2c.h"
@@ -50,13 +47,11 @@ static void gpio_irq(uint gpio, uint32_t events)
 {
 	//printf("%s: gpio %d, events 0x%02X\r\n", __func__, gpio, events);
     irq_fired = true;
-    #if defined(BLEPIS_V2) || defined(SNOWDIVE_BTM_PALMTOP)
+    #ifdef HAS_XL9535
         xl9535_gpio_irq(gpio, events);
     #endif
 	touchpad_gpio_irq(gpio, events);
-    #ifdef BEEPY
-    #endif
-    	gpioexp_gpio_irq(gpio, events);
+	gpioexp_gpio_irq(gpio, events);
 }
 
 // TODO: Microphone
@@ -176,20 +171,21 @@ int main(void)
 
     setup_puppet_i2c_as_shared_i2c();
     #ifndef NDEBUG
-    sleep_ms(100);
-    i2c_inst_t* i2c_cpu = get_puppet_shared_i2c_instance();
+    //sleep_ms(100);
+    //i2c_inst_t* i2c_cpu = get_puppet_shared_i2c_instance();
     //i2c_scan(i2c_cpu);
     #endif
+
+    #ifdef HAS_I2C_RTC_INTBUG
     bool rtc_disabled = disable_i2c_rtc_clk();
+    #endif
     //sleep_ms(1000);
 
     // gpioexp only works on OG beepy so far
-    #ifdef BEEPY
+    #ifndef NDEBUG
+        printf("gpioexp init\r\n");
     #endif
-        #ifndef NDEBUG
-	        printf("gpioexp init\r\n");
-        #endif
-    	gpioexp_init();
+	gpioexp_init();
 
     #ifndef NDEBUG
 	    printf("keeb init\r\n");
@@ -229,18 +225,22 @@ int main(void)
     bool exp_interrupts_disabled = false;
 
     #if defined(HAS_XL9535)
-    if (rtc_disabled) {
-        #ifndef NDEBUG
-	        printf("xl9535 int init\r\n");
+        #ifdef HAS_I2C_RTC_INTBUG
+        if (rtc_disabled) {
         #endif
+            #ifndef NDEBUG
+	            printf("xl9535 int init\r\n");
+            #endif
 
-        xl9535_enable_irq();
-    } else {
-        exp_interrupts_disabled = true;
-        #ifndef NDEBUG
-	        printf("RTC on, not enabling int\r\n");
+            xl9535_enable_irq();
+        #ifdef HAS_I2C_RTC_INTBUG
+        } else {
+            exp_interrupts_disabled = true;
+            #ifndef NDEBUG
+	            printf("RTC on, not enabling int\r\n");
+            #endif
+        }
         #endif
-    }
     #endif
 
     #ifndef NDEBUG

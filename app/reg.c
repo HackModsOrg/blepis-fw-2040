@@ -11,15 +11,12 @@
 #include "hardware/adc.h"
 #include "rtc.h"
 #include "update.h"
+#include "gpioexp.h"
 
 #if defined(BLEPIS) || defined(SNOWDIVE_BTM_PALMTOP)
-#include "vibromotor.h"
-#include "peripherals.h"
+    #include "vibromotor.h"
+    #include "peripherals.h"
 #endif
-
-#ifdef BEEPY
-#endif
-#include "gpioexp.h"
 
 #include <pico/stdlib.h>
 #include <RP2040.h> // TODO: When there's more than one RP chip, change this to be more generic
@@ -132,8 +129,6 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 	case REG_ID_PUE: // gpio input pull enable
 	case REG_ID_PUD: // gpio input pull direction
 	{
-        #ifdef BEEPY
-        #endif
 		if (is_write) {
 			switch (reg) {
 			case REG_ID_DIR:
@@ -254,8 +249,6 @@ void reg_process_packet(uint8_t in_reg, uint8_t in_data, uint8_t *out_buffer, ui
 
 	case REG_ID_GIO: // gpio value
 	{
-        #ifdef BEEPY
-        #endif
 		if (is_write) {
 			gpioexp_set_value(in_data);
 		} else {

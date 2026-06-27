@@ -159,9 +159,12 @@ void process_gpio_update(uint8_t gpio, bool new_state) {
     if (gpio == PIN_5V_PGOOD) {
         printf("5V PGOOD %d\r\n", new_state);
     }
-    if (gpio == PIN_FUSB_INT) {
-        printf("FUSB INT %d\r\n", new_state);
-    }
+        #ifdef PIN_FUSB_INT
+        // blepis v1 doesn't have that.. somehow
+        if (gpio == PIN_FUSB_INT) {
+            printf("FUSB INT %d\r\n", new_state);
+        }
+        #endif
     #endif
     #ifdef SNOWDIVE_BTM_PALMTOP
     if (gpio == PIN_5V_BTM_PGOOD) {
